@@ -1,25 +1,26 @@
-# Контур — news portal
+# Kontur — space editorial dashboard
 
-React + Vite проект, сверстанный по промо-референсу с адаптивной версией.
+React + Vite implementation of the supplied Kontur visual mockup, without the phone panel on the right.
 
-## Запуск локально
-
-Требуется Node.js 18+.
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-После запуска Vite покажет адрес вида `http://localhost:5173/`.
+Open the local Vite URL shown in the terminal.
 
-## Сборка
+## Build
 
 ```bash
 npm run build
-npm run preview
 ```
 
-### Важно
+## Visual notes
 
-В этой версии исправлен корневой `index.html`: ранее он был пустым, из-за чего Vite открывал страницу без React root и приложение не отображалось.
+- The desktop composition is intentionally dense and follows the supplied mockup proportions.
+- The Earth image is bundled locally in `src/assets/earth.jpg`.
+- The background stars are CSS-generated, so there is no extra background image to load.
+- The display wordmark uses Jura with Cyrillic support and an outlined neon treatment. Jura supports Cyrillic according to its Google Fonts metadata. 
+- The right-hand phone mockup is intentionally not part of this implementation.

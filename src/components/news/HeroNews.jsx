@@ -1,37 +1,29 @@
-import React from 'react';
+import earth from '../../assets/earth.jpg';
 
 const sideStories = [
-  ["ПОЛИТИКА", "В Кремле прокомментировали новые санкции Запада", "1 час назад", 
-    "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=500&q=80"],
-  ["ЭКОНОМИКА", "ЦБ сохранил ключевую ставку на уровне 16%", "3 часа назад",
-    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=500&q=80"],
-  ["ТЕХНОЛОГИИ", "В России запущен новый спутник связи", "4 часа назад",
-    "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=500&q=80"],
-  ["ОБЩЕСТВО", "В регионах усилят меры безопасности перед праздниками", "5 часов назад",
-    "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=500&q=80"]
+  ['ПОЛИТИКА', 'В Кремле прокомментировали новые санкции Запада', '1 час назад', 'politics'],
+  ['ЭКОНОМИКА', 'ЦБ сохранил ключевую ставку на уровне 16%', '3 часа назад', 'economy'],
+  ['ТЕХНОЛОГИИ', 'В России запущен новый спутник связи', '4 часа назад', 'tech'],
+  ['ОБЩЕСТВО', 'В регионах усилят меры безопасности перед праздниками', '5 часов назад', 'society'],
 ];
 
 export default function HeroNews() {
   return (
     <section className="hero-section">
       <article className="hero-card">
-        <img 
-          src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1400&q=90" 
-          alt="Главная новость" 
-        />
-        <div className="hero-overlay" />
+        <img src={earth} alt="Земля ночью" />
+        <div className="hero-tint" />
         <div className="hero-copy">
           <span className="pill">ПОЛИТИКА</span>
           <h1>Россия и мир: новые горизонты в условиях меняющегося порядка</h1>
-          <p>Эксперты обсудили, как изменится глобальная система в ближайшие годы и какую роль в этом сыграет Россия.</p>
-          <small>2 часа назад　◉ 128</small>
+          <p>Эксперты обсудили, как изменится глобальная политика в ближайшие годы и какую роль в этом сыграет Россия.</p>
+          <small>2 часа назад <span>◉</span> 128</small>
         </div>
       </article>
-
       <div className="hero-side">
-        {sideStories.map(([cat, title, time, img]) => (
+        {sideStories.map(([cat, title, time, kind]) => (
           <article className="side-story" key={title}>
-            <img src={img} alt={title} />
+            <div className={`story-thumb ${kind}`} />
             <div>
               <span>{cat}</span>
               <h3>{title}</h3>
