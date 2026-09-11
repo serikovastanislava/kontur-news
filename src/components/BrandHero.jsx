@@ -3,7 +3,6 @@ import Logo from './common/Logo';
 export default function BrandHero() {
   return (
     <section className="brand-hero">
-      <div className="brand-earth" aria-hidden="true" />
       <div className="brand-identity">
         <Logo />
         <div className="brand-slogan">НОВОСТИ <span>•</span> МНЕНИЯ <span>•</span> ГЛАВНОЕ</div>
