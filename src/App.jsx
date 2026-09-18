@@ -4,31 +4,44 @@ import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
 import HeroNews from './components/news/HeroNews';
 import QuickTopics from './components/news/QuickTopics';
+import SourcesFeed from './components/news/SourcesFeed';
 import PopularGrid from './components/news/PopularGrid';
 import Editorial from './components/news/Editorial';
 import SubscribeBanner from './components/news/SubscribeBanner';
 import RightRail from './components/RightRail';
+import Footer from './components/layout/Footer';
+import { AppProvider } from './state/store';
+import ModalRoot from './components/common/ModalRoot';
+import ToastStack from './components/common/ToastStack';
+import CookieBanner from './components/common/CookieBanner';
 
 export default function App() {
   return (
-    <div className="site">
-      <BrandHero />
-      <div className="workspace">
-        <div className="dashboard">
-          <Header />
-          <div className="page-layout">
-            <Sidebar />
-            <main className="main-content">
-              <HeroNews />
-              <QuickTopics />
-              <PopularGrid />
-              <Editorial />
-              <SubscribeBanner />
-            </main>
+    <AppProvider>
+      <div className="site">
+        <BrandHero />
+        <div className="workspace">
+          <div className="dashboard">
+            <Header />
+            <div className="page-layout">
+              <Sidebar />
+              <main className="main-content">
+                <HeroNews />
+                <QuickTopics />
+                <SourcesFeed />
+                <PopularGrid />
+                <Editorial />
+              </main>
+            </div>
+            <SubscribeBanner />
           </div>
+          <RightRail />
         </div>
-        <RightRail />
+        <Footer />
       </div>
-    </div>
+      <ModalRoot />
+      <ToastStack />
+      <CookieBanner />
+    </AppProvider>
   );
 }

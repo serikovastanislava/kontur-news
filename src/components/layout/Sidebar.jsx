@@ -1,3 +1,30 @@
-import { Home, Star, Flame, Clock3, Globe2, Landmark, ChartNoAxesCombined, Cpu, Users, Trophy, Palette, FlaskConical, HeartPulse } from 'lucide-react';
-const categories = [[Globe2,'Мир'],[Landmark,'Политика'],[ChartNoAxesCombined,'Экономика'],[Cpu,'Технологии'],[Users,'Общество'],[Trophy,'Спорт'],[Palette,'Культура'],[FlaskConical,'Наука'],[HeartPulse,'Здоровье']];
-export default function Sidebar(){return <aside className="sidebar"><div className="side-menu"><a className="selected"><Home size={15}/>Главная</a><a><Star size={15}/>Избранное</a><a><Flame size={15}/>Популярное</a><a><Clock3 size={15}/>Последние</a></div><div className="side-label">КАТЕГОРИИ</div><div className="category-list">{categories.map(([Icon,name])=><a key={name}><Icon size={15}/>{name}</a>)}</div><div className="side-subscribe"><b>Будьте в курсе<br/>событий</b><p>Важные новости и эксклюзивные материалы первыми.</p><button>Подписаться <span>→</span></button></div></aside>}
+import { Home, Star, Flame, Clock3, Mail } from 'lucide-react';
+import { useApp } from '../../state/store';
+
+const sideNav = [[Home, 'Главная'], [Star, 'Избранное'], [Flame, 'Популярное'], [Clock3, 'Последние']];
+
+export default function Sidebar() {
+  const { t, activeSideNav, setActiveSideNav, openModal } = useApp();
+
+  const onSideNav = (name) => {
+    setActiveSideNav(name);
+  };
+
+  return (
+    <aside className="sidebar">
+      <div className="side-menu">
+        {sideNav.map(([Icon, name]) => (
+          <a key={name} className={activeSideNav === name ? 'selected' : ''} onClick={() => onSideNav(name)}>
+            <Icon size={15} />{t(name)}
+          </a>
+        ))}
+      </div>
+      <div className="side-subscribe">
+        <div className="sub-icon"><Mail size={15} /></div>
+        <b>{t('Будьте в курсе событий')}</b>
+        <p>{t('Важные новости и эксклюзивные материалы первыми.')}</p>
+        <button onClick={() => openModal('subscribe')}>{t('Подписаться')} <span>→</span></button>
+      </div>
+    </aside>
+  );
+}

@@ -1,22 +1,18 @@
-import React from 'react';
-
-const importantItems = [
-  ["12:30", "ЦБ сохранил ключевую ставку"],
-  ["11:45", "Новые санкции против ряда компаний"],
-  ["10:20", "Открытие выставки современного искусства"]
-];
+import { importantEvents } from '../../data/news';
+import { useApp } from '../../state/store';
 
 export default function ImportantWidget() {
+  const { t, openModal } = useApp();
   return (
     <section className="widget important">
-      <h3>Важное</h3>
-      {importantItems.map(([time, text]) => (
-        <div className="timeline" key={time}>
-          <b>{time}</b>
-          <span>{text}</span>
+      <h3>{t('Важное')}</h3>
+      {importantEvents.slice(0, 3).map((ev) => (
+        <div className="timeline" key={ev.id}>
+          <b>{ev.time}</b>
+          <span>{t(ev.text)}</span>
         </div>
       ))}
-      <a>Все важные события →</a>
+      <a onClick={() => openModal('events')}>{t('Все важные события →')}</a>
     </section>
   );
 }

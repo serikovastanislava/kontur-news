@@ -1,0 +1,287 @@
+/* Final responsive/layout pass: preserve card proportions and spacing at different viewport sizes/zoom. */
+:root{
+  --shell-max: 1428px;
+  --shell-gutter: clamp(20px, 2.8vw, 42px);
+  --content-gap: clamp(14px, 1.45vw, 22px);
+  --section-gap: clamp(18px, 2vw, 28px);
+  --card-gap: clamp(12px, 1.15vw, 18px);
+}
+
+.site{overflow-x:clip;}
+.brand-hero,
+.workspace,
+.footer{
+  width:min(var(--shell-max), calc(100% - (2 * var(--shell-gutter))));
+  margin-left:auto;
+  margin-right:auto;
+}
+
+/* Keep the masthead centered independently from the dashboard. */
+.brand-hero{height:185px;padding-inline:0;}
+.brand-identity{margin-left:clamp(32px, 7vw, 104px);}
+.brand-quote{margin-right:clamp(0px, 1.6vw, 24px);}
+
+/* The whole application shell remains centered; never pin it to the left. */
+.workspace{
+  grid-template-columns:minmax(0,1fr) 201px;
+  gap:var(--content-gap);
+  align-items:start;
+}
+.dashboard{min-width:0;width:100%;}
+.page-layout{grid-template-columns:200px minmax(0,1fr);min-width:0;}
+.main-content{min-width:0;padding:clamp(14px,1.35vw,20px) clamp(14px,1.35vw,20px) 0;}
+
+/* Give body sections breathing room instead of stacking them tightly. */
+.main-content>.section{margin-top:var(--section-gap);}
+.main-content>.hero-section + .section{margin-top:var(--section-gap);}
+.section-head{margin-bottom:clamp(9px, .9vw, 13px);}
+.section-head h2,.editor-box h2,.rank-box h2,.media-box h2{font-size:clamp(16px,1.15vw,18px);}
+
+/* Hero keeps a stable visual ratio while the grid itself remains fluid. */
+.hero-section{
+  grid-template-columns:minmax(0,1.36fr) minmax(300px,1fr);
+  gap:var(--card-gap);
+}
+.hero-card{height:auto;aspect-ratio:1.84 / 1;min-height:270px;}
+.hero-copy{left:clamp(16px,1.5vw,22px);right:clamp(16px,1.5vw,22px);bottom:clamp(15px,1.35vw,20px);}
+.hero-copy h1{font-size:clamp(25px,2.05vw,31px);line-height:1.08;}
+.hero-copy p{font-size:clamp(13px,1vw,15px);}
+.hero-side{gap:0;}
+.side-story{min-height:0;height:calc((100% - 3 * var(--card-gap)) / 4);}
+
+/* Quick-access tiles: equal widths, equal height, no stretching when zoom changes. */
+.topic-row{gap:var(--card-gap);overflow:visible;}
+.topic{height:64px;min-width:0;}
+
+/* Popular/source cards keep a stable silhouette and use larger gutters. */
+.popular-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--card-gap);}
+.news-card{min-height:202px;}
+.card-image{height:112px;}
+.news-card h3{font-size:clamp(13px,1vw,15px);line-height:1.18;margin:9px 11px 4px;}
+.news-card>small{font-size:11px;margin:0 11px 8px;}
+.sources-grid{gap:var(--card-gap);}
+.empty-note{min-height:78px;display:grid;place-items:center;padding:18px;}
+
+/* Lower three-column area gets explicit gutters so blocks never visually collide. */
+.editorial{
+  grid-template-columns:minmax(0,1.08fr) minmax(0,1fr) minmax(0,1fr);
+  gap:clamp(18px,2vw,30px);
+  padding-bottom:clamp(18px,2vw,28px);
+}
+.editor-feature{grid-template-columns:100px minmax(0,1fr);}
+.editor-feature h3{font-size:11px;}
+.mini-link{font-size:11px;padding:8px 0;}
+.rank{grid-template-columns:42px minmax(0,1fr);gap:8px;padding:7px 0;}
+.rank b{font-size:26px;}
+.rank span{font-size:11px;}
+.rank small{font-size:9px;}
+.video-card{height:auto;aspect-ratio:16/9;}
+.media-box h3{font-size:13px;margin-top:8px;}
+.media-box>small{font-size:11px;}
+
+/* Bottom banner aligns to the content edges but does not expand beyond the dashboard. */
+.subscribe-banner{min-height:72px;margin:0;padding:13px 18px;gap:14px;}
+.subscribe-banner h2{font-size:15px;}
+.subscribe-banner p{font-size:10px;}
+.subscribe-form{width:min(390px,42%);}
+
+/* Right rail cards retain the same visual proportions at all desktop widths. */
+.right-rail{padding:12px 10px;}
+.widget{margin-bottom:14px;padding:13px 11px;}
+.important{min-height:247px;}
+.live-widget{min-height:112px;}
+.currency{min-height:165px;}
+.newsletter{min-height:112px;}
+.rail-brand{min-height:100px;}
+
+/* Tablet: preserve the dashboard hierarchy before collapsing to one column. */
+@media (max-width:1180px){
+  .brand-hero{height:170px;}
+  .brand-identity{margin-left:4%;}
+  .workspace{grid-template-columns:minmax(0,1fr) 190px;gap:14px;}
+  .page-layout{grid-template-columns:184px minmax(0,1fr);}
+  .main-content{padding-inline:13px;}
+  .hero-section{grid-template-columns:minmax(0,1.22fr) minmax(250px,1fr);}
+  .hero-card{min-height:250px;}
+  .hero-copy h1{font-size:clamp(23px,2.6vw,28px);}
+  .popular-grid{gap:12px;}
+  .editorial{gap:18px;}
+  .subscribe-form{width:310px;}
+}
+
+/* At narrower widths the right rail collapses first; main cards keep their shape. */
+@media (max-width:960px){
+  .workspace{grid-template-columns:1fr;}
+  .right-rail{display:none;}
+  .page-layout{grid-template-columns:184px minmax(0,1fr);}
+  .hero-section{grid-template-columns:1fr;}
+  .hero-card{aspect-ratio:2.05/1;min-height:260px;}
+  .hero-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--card-gap);}
+  .side-story{height:auto;min-height:94px;}
+  .editorial{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .media-box{grid-column:1/-1;}
+  .subscribe-form{width:min(360px,45%);}
+}
+
+@media (max-width:760px){
+  .brand-hero{width:calc(100% - 24px);height:128px;}
+  .brand-identity{margin-left:0;}
+  .brand-hero .logo-mark{width:60px;height:60px;}
+  .brand-hero .logo-word{font-size:34px;}
+  .brand-quote{display:none;}
+  .workspace{width:calc(100% - 24px);}
+  .page-layout{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .main-content{padding:12px 10px 0;}
+  .popular-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+  .news-card{min-height:210px;}
+  .card-image{height:118px;}
+  .editorial{grid-template-columns:1fr;gap:22px;}
+  .media-box{grid-column:auto;}
+  .subscribe-banner{margin:0 -10px;border-radius:8px;}
+  .subscribe-form{width:100%;margin-left:0;}
+}
+
+@media (max-width:480px){
+  .brand-hero{height:108px;}
+  .brand-hero .logo-mark{width:48px;height:48px;}
+  .brand-hero .logo-word{font-size:28px;letter-spacing:1.5px;}
+  .brand-slogan{font-size:7px;letter-spacing:1px;}
+  .brand-slogan:after{width:180px;}
+  .hero-card{aspect-ratio:1.35/1;min-height:285px;}
+  .hero-copy h1{font-size:21px;}
+  .hero-copy p{font-size:12px;}
+  .hero-side{grid-template-columns:1fr;}
+  .popular-grid{grid-template-columns:1fr;gap:16px;}
+  .news-card{min-height:0;}
+  .card-image{height:150px;}
+  .topic-row{overflow-x:auto;padding-bottom:10px;}
+  .topic{min-width:106px;flex:0 0 106px;}
+  .subscribe-banner{padding:12px;}
+}
+
+/* Final spacing pass: lift the lower section titles and give their cards more breathing room. */
+.editorial{
+  position:relative;
+  padding-top:8px;
+  gap:clamp(20px,2.2vw,32px);
+}
+.editorial > .editor-box,
+.editorial > .rank-box,
+.editorial > .media-box{
+  min-width:0;
+}
+.editorial .editor-box > h2,
+.editorial .rank-box > h2,
+.editorial .media-box > h2{
+  display:block;
+  margin:0 0 10px;
+  line-height:1.15;
+}
+
+/* The subscription strip is a full-width background band behind the main content. */
+.subscribe-banner{
+  width:calc(100% + 40px);
+  margin-left:-20px;
+  margin-right:-20px;
+  border-left-color:rgba(91,33,214,.75);
+  border-right-color:rgba(91,33,214,.75);
+}
+
+@media (max-width:1180px){
+  .subscribe-banner{width:calc(100% + 26px);margin-left:-13px;margin-right:-13px;}
+}
+
+@media (max-width:760px){
+  .editorial{padding-top:6px;gap:24px;}
+  .editorial .editor-box > h2,
+  .editorial .rank-box > h2,
+  .editorial .media-box > h2{margin-bottom:11px;}
+  .subscribe-banner{width:calc(100% + 20px);margin-left:-10px;margin-right:-10px;}
+}
+
+@media (max-width:480px){
+  .editorial{padding-top:5px;}
+  .subscribe-banner{width:calc(100% + 20px);margin-left:-10px;margin-right:-10px;}
+}
+
+/* ===== FINAL STRUCTURAL FIX =====
+   The subscription strip belongs to the whole dashboard shell, not the main-content column.
+   This makes its background span the complete container behind the page, matching the reference. */
+.dashboard > .subscribe-banner{
+  width:100% !important;
+  max-width:none !important;
+  margin:0 !important;
+  border-left:0;
+  border-right:0;
+  border-bottom:0;
+  border-radius:0 0 var(--radius) var(--radius);
+}
+
+/* Lift the lower three-column block while keeping a clear title-to-card gap. */
+.main-content > .editorial{
+  margin-top:18px !important;
+  padding-top:0 !important;
+  gap:clamp(20px,2vw,30px) !important;
+}
+.main-content > .editorial .editor-box > h2,
+.main-content > .editorial .rank-box > h2,
+.main-content > .editorial .media-box > h2{
+  margin:0 0 13px !important;
+  padding:0 !important;
+  line-height:1.15 !important;
+}
+
+/* Preserve the same breathing room when the grid changes columns. */
+@media (max-width:960px){
+  .main-content > .editorial{margin-top:18px !important;gap:22px !important;}
+  .dashboard > .subscribe-banner{width:100% !important;margin:0 !important;}
+}
+@media (max-width:760px){
+  .main-content > .editorial{margin-top:18px !important;gap:24px !important;}
+  .dashboard > .subscribe-banner{width:100% !important;margin:0 !important;border-radius:0 0 var(--radius) var(--radius) !important;}
+}
+
+/* === FINAL USER REQUEST: align lower headings with Popular topics and round banner === */
+.main-content > .editorial {
+  margin-top: clamp(18px, 2vw, 26px) !important;
+  padding-top: 0 !important;
+  align-items: start;
+}
+
+/* Popular topics uses a 13px title-to-card gap; keep the lower three sections on the same rhythm. */
+.main-content > .editorial .editor-box > h2,
+.main-content > .editorial .rank-box > h2,
+.main-content > .editorial .media-box > h2 {
+  margin: 0 0 clamp(12px, .9vw, 13px) !important;
+  line-height: 1.1 !important;
+}
+
+/* Prevent a heading from visually touching the first card/content block. */
+.main-content > .editorial .editor-feature,
+.main-content > .editorial .rank,
+.main-content > .editorial .video-card {
+  margin-top: 0;
+}
+
+/* The full-width subscription strip keeps rounded lower corners, including its border. */
+.dashboard > .subscribe-banner {
+  border-bottom: 1px solid var(--line) !important;
+  border-radius: 0 0 var(--radius) var(--radius) !important;
+  clip-path: inset(0 round var(--radius));
+}
+
+@media (max-width: 960px) {
+  .main-content > .editorial {
+    margin-top: 20px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .main-content > .editorial {
+    margin-top: 20px !important;
+  }
+  .dashboard > .subscribe-banner {
+    border-radius: 0 0 var(--radius) var(--radius) !important;
+  }
+}
