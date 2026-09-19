@@ -1,32 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Mail, Lock, User as UserIcon, Send, MessageCircle, Link2, Play, Pause, TrendingUp, TrendingDown, Clock, Eye
+  Mail, Lock, User as UserIcon, Send, MessageCircle, Link2, Play, Pause, TrendingUp, TrendingDown, Clock, Eye, Heart
 } from 'lucide-react';
 import Modal from './Modal';
 import { useApp } from '../../state/store';
 import {
-  placeholderBody, importantEvents, currencies, allSearchable
+  placeholderBody, importantEvents, currencies, allSearchable, getViews
 } from '../../data/news';
 import { getBaseDate, formatRelative } from '../../utils/time';
+import { coverMap, avatarMap, fallbackCovers } from '../../utils/covers';
 import videoThumb from '../../assets/crops/video.jpg';
-import earth from '../../assets/earth.jpg';
-import sidePolitics from '../../assets/crops/side-politics.jpg';
-import sideEconomy from '../../assets/crops/side-economy.jpg';
-import sideTech from '../../assets/crops/side-tech.jpg';
-import sideSociety from '../../assets/crops/side-society.jpg';
-import cardAi from '../../assets/crops/card-ai.jpg';
-import cardEconomy from '../../assets/crops/card-economy.jpg';
-import cardCulture from '../../assets/crops/card-culture.jpg';
-import cardSport from '../../assets/crops/card-sport.jpg';
-import editorPortrait from '../../assets/crops/editor.jpg';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const coverMap = {
-  'hero-main': earth, s1: sidePolitics, s2: sideEconomy, s3: sideTech, s4: sideSociety,
-  p1: cardAi, p2: cardEconomy, p3: cardCulture, p4: cardSport
-};
-const avatarMap = { 'editor-feature': editorPortrait };
 
 function hashNumber(id, min, max) {
   let h = 0;
@@ -102,7 +87,7 @@ function Avatar({ id, name }) {
 }
 
 function ArticleContent({ id, category, title, time, excerpt, author, role, publishedAt }) {
-  const { t, lang, toast, openModal } = useApp();
+  const { t, lang, toast, openModal, user, favorites, toggleFavorite } = useApp();
   const catT = t(category);
   const titleT = t(title);
   const [l0, l1, l2] = placeholderBody(catT, titleT, lang);
@@ -112,9 +97,10 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
   const readMins = Math.max(1, Math.round(words / 180));
   const cover = id ? coverMap[id] : null;
   const bylineName = author || 'Редакция «Контур»';
+  const isFav = id ? favorites.includes(id) : false;
 
   // Live view counter: ticks up while the article stays open, like a "reading now" indicator.
-  const [views, setViews] = useState(() => hashNumber(id || title, 42, 940));
+  const [views, setViews] = useState(() => getViews(id || title));
   useEffect(() => {
     const iv = setInterval(() => setViews(v => v + Math.ceil(Math.random() * 3)), 4000 + Math.random() * 3000);
     return () => clearInterval(iv);
@@ -142,14 +128,21 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
 
   const related = allSearchable().filter(it => it.id !== id && it.title !== title).slice(0, 3).map((it, i) => ({
     ...it,
-    img: [cardAi, sideEconomy, cardCulture, sideTech, cardSport, sidePolitics][hashNumber(it.id + i, 0, 6)]
+    img: fallbackCovers[hashNumber(it.id + i, 0, 6)]
   }));
 
   return (
     <>
       {cover && <div className="reader-cover"><img src={cover} alt="" /></div>}
       <div className="modal-head reader-head">
-        <span className="pill">{catT}</span>
+        <div className="reader-head-top">
+          <span className="pill">{catT}</span>
+          {user && id && (
+            <button className={`fav-toggle${isFav ? ' is-on' : ''}`} onClick={() => toggleFavorite(id)} aria-label={t('Добавить в избранное')}>
+              <Heart size={14} fill={isFav ? 'currentColor' : 'none'} />{isFav ? t('В избранном') : t('В избранное')}
+            </button>
+          )}
+        </div>
         <h2 id="article-title">{titleT}</h2>
         <div className="reader-byline">
           <Avatar id={id} name={bylineName} />

@@ -5,7 +5,7 @@ import MobileDrawer from '../common/MobileDrawer';
 import CategoryPanel from './CategoryPanel';
 import { useApp } from '../../state/store';
 
-const navLinks = ['Главная', 'Мир', 'Политика', 'Экономика', 'Технологии', 'Общество', 'Спорт', 'Культура', 'Наука'];
+const navLinks = ['Мир', 'Политика', 'Экономика', 'Технологии', 'Общество', 'Спорт', 'Культура', 'Наука'];
 
 export default function Header() {
   const { t, lang, setLang, openModal, user, logout, activeTopNav, setActiveTopNav } = useApp();
@@ -36,7 +36,6 @@ export default function Header() {
 
   const onNavClick = (link) => {
     setActiveTopNav(link);
-    if (link === 'Главная') { setOpenCategory(null); return; }
     setOpenCategory(c => c === link ? null : link);
   };
 

@@ -139,7 +139,17 @@ const dict = {
   // header category dropdown
   'Свежее в разделе': 'Fresh in this section',
   'Читать материал': 'Read the story',
-  'Пока нет свежих материалов в этом разделе.': 'No fresh material in this section yet.'
+  'Пока нет свежих материалов в этом разделе.': 'No fresh material in this section yet.',
+
+  // favorites
+  'Добавить в избранное': 'Add to favorites',
+  'В избранное': 'Save', 'В избранном': 'Saved',
+  'Войдите, чтобы видеть и добавлять материалы в избранное.': 'Log in to view and save favorites.',
+  'У вас пока нет избранных материалов.': "You don't have any favorites yet.",
+  'Материалы с более чем 100 просмотрами.': 'Stories with more than 100 views.',
+  'Материалы, опубликованные не более 2 часов назад.': 'Stories published within the last 2 hours.',
+  'Пока нет материалов, подходящих под этот фильтр.': 'Nothing matches this filter yet.',
+  'просмотров': 'views'
 };
 
 const CONSENT_COOKIE = 'kontur_consent';
@@ -149,6 +159,7 @@ const MARKETING_COOKIE = 'kontur_marketing';
 const LANG_KEY = 'kontur-lang';
 const USER_KEY = 'kontur-user';
 const ARTICLES_KEY = 'kontur-user-articles';
+const FAVORITES_KEY = 'kontur-favorites';
 
 function readJSON(key, fallback) {
   try {
@@ -174,6 +185,7 @@ export function AppProvider({ children }) {
     try { return JSON.parse(raw); } catch { return null; }
   });
   const [userArticles, setUserArticles] = useState(() => readJSON(ARTICLES_KEY, []));
+  const [favorites, setFavorites] = useState(() => readJSON(FAVORITES_KEY, []));
 
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
@@ -219,6 +231,19 @@ export function AppProvider({ children }) {
     localStorage.removeItem(USER_KEY);
     toast('Вы вышли из аккаунта', 'info');
   }, [toast]);
+
+  // Favorites are a registered-user feature: the toggle only does anything when
+  // someone is logged in (the UI that calls this is itself hidden for guests).
+  const toggleFavorite = useCallback((id) => {
+    if (!user) { openModal('auth', { tab: 'login' }); return; }
+    setFavorites(list => {
+      const has = list.includes(id);
+      const next = has ? list.filter(x => x !== id) : [...list, id];
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      toast(has ? 'Удалено из избранного' : 'Добавлено в избранное', has ? 'info' : 'success');
+      return next;
+    });
+  }, [user, toast, openModal]);
 
   // Writes the real cookies a genuine consent banner would control: a necessary
   // cookie always gets set once a choice is made, while analytics/marketing
@@ -286,11 +311,12 @@ export function AppProvider({ children }) {
     activeTopic, toggleTopic,
     isLive, setIsLive,
     cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
-    userArticles, publishArticle, removeArticle
+    userArticles, publishArticle, removeArticle,
+    favorites, toggleFavorite
   }), [lang, setLang, t, user, login, register, logout, toasts, toast, dismissToast,
       modal, openModal, closeModal, activeTopNav, activeSideNav,
       activeTopic, toggleTopic, isLive, cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
-      userArticles, publishArticle, removeArticle]);
+      userArticles, publishArticle, removeArticle, favorites, toggleFavorite]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

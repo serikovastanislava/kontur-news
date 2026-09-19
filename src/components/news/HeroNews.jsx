@@ -20,7 +20,7 @@ export default function HeroNews() {
         {sideStories.map((s) => (
           <article className="side-story" key={s.id} onClick={() => openModal('article', { id: s.id, category: s.category, title: s.title, time: s.time })}>
             <div className={`story-thumb ${s.kind}`} />
-            <div>
+            <div className="side-story-body">
               <span>{t(s.category)}</span>
               <h3>{t(s.title)}</h3>
               <small>{t(s.time)}</small>

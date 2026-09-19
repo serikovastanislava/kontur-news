@@ -93,8 +93,31 @@ export const allSearchable = () => ([
   { id: videoFeature.id, category: 'Мультимедиа', title: videoFeature.title, time: videoFeature.duration }
 ]);
 
+// Stable pseudo-random view count per article id — the same number the article
+// reader shows (before it starts live-ticking), so the "Популярное" (>100 views)
+// filter is consistent with what people actually see when they open a story.
+function hashInRange(id, min, max) {
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return min + (h % (max - min));
+}
+export function getViews(id) {
+  return hashInRange(id, 20, 260);
+}
+
+// The unified list of real news items (hero + side stories + popular + rankings)
+// that the sidebar's Популярное/Последние/Избранное tabs filter over.
+export function getAllArticles() {
+  return [
+    { id: heroMain.id, category: heroMain.category, title: heroMain.title, excerpt: heroMain.excerpt, time: heroMain.time },
+    ...sideStories.map(s => ({ id: s.id, category: s.category, title: s.title, time: s.time })),
+    ...popular.map(p => ({ id: p.id, category: p.category, title: p.title, time: p.time })),
+    ...rankings.map(r => ({ id: r.id, category: 'Главное', title: r.title, time: r.time }))
+  ];
+}
+
 // Roughly how many hours ago a "N часов/минут назад" string points to — smaller is fresher.
-function approxHoursAgo(str) {
+export function approxHoursAgo(str) {
   const m = String(str).match(/(\d+)\s*(час|часа|часов|минута|минуты|минут)/i);
   if (!m) return 999;
   const n = parseInt(m[1], 10);
