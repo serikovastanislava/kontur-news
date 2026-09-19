@@ -41,7 +41,7 @@ export default function Header() {
 
   return (
     <header className="header" ref={headerRef}>
-      <Logo compact />
+      <div className="header-logo-col"><Logo compact /></div>
       <nav className="top-nav">
         {navLinks.map(link => (
           <div className="nav-item" key={link}>

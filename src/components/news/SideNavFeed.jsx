@@ -40,12 +40,6 @@ export default function SideNavFeed({ mode }) {
     items = items.filter(a => favorites.includes(a.id));
   }
 
-  const subtitle = {
-    'Популярное': t('Материалы с более чем 100 просмотрами.'),
-    'Последние': t('Материалы, опубликованные не более 2 часов назад.'),
-    'Избранное': null
-  }[mode];
-
   const openArticle = (a) => openModal('article', {
     id: a.id, category: a.category, title: a.title, excerpt: a.excerpt,
     time: a.time, author: a.author, publishedAt: a.publishedAt
@@ -54,7 +48,6 @@ export default function SideNavFeed({ mode }) {
   return (
     <section className="section">
       <div className="section-head"><h2>{t(mode)}</h2></div>
-      {subtitle && <p className="sidefeed-subtitle">{subtitle}</p>}
       {items.length === 0 ? (
         <div className="empty-note">
           {mode === 'Избранное' ? t('У вас пока нет избранных материалов.') : t('Пока нет материалов, подходящих под этот фильтр.')}
