@@ -1,4 +1,3 @@
-import React from 'react';
 import BrandHero from './components/BrandHero';
 import Header from './components/layout/Header';
 import Sidebar from './components/layout/Sidebar';
@@ -18,9 +17,11 @@ import CookieBanner from './components/common/CookieBanner';
 
 function MainContent() {
   const { activeSideNav } = useApp();
+
   if (activeSideNav && activeSideNav !== 'Главная') {
     return <SideNavFeed mode={activeSideNav} />;
   }
+
   return (
     <>
       <HeroNews />

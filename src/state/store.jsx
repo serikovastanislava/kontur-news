@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { topics } from '../data/news';
 import { setCookie, getCookie, deleteCookie } from '../utils/cookies';
+import { useNews } from '../hooks/useNews';
+import { API, apiFetch, jsonOrError } from '../api';
 
 const AppCtx = createContext(null);
 
@@ -93,7 +95,7 @@ const dict = {
   'Нет аккаунта?': "Don't have an account?", 'Зарегистрироваться': 'Sign up',
   'Уже с нами?': 'Already with us?',
   'Введите корректный email': 'Enter a valid email', 'Введите ваше имя': 'Enter your name',
-  'Пароль должен быть не короче 4 символов': 'Password must be at least 4 characters',
+  'Пароль должен быть не короче 6 символов': 'Password must be at least 6 characters',
   'Поделиться': 'Share', 'Ссылка на публикацию скопирована': 'Article link copied',
   'Поиск по сайту': 'Site search', 'Начните вводить — покажем совпадения по заголовкам и рубрикам.':
     'Start typing — we\'ll match headlines and sections.',
@@ -186,6 +188,7 @@ export function AppProvider({ children }) {
   });
   const [userArticles, setUserArticles] = useState(() => readJSON(ARTICLES_KEY, []));
   const [favorites, setFavorites] = useState(() => readJSON(FAVORITES_KEY, []));
+  const { news, loading: newsLoading, error: newsError, reload: reloadNews } = useNews();
 
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
@@ -209,41 +212,106 @@ export function AppProvider({ children }) {
 
   const t = useCallback((ru) => (lang === 'en' && dict[ru]) ? dict[ru] : ru, [lang]);
 
-  const login = useCallback((email) => {
-    const name = email.split('@')[0] || 'Читатель';
-    const u = { email, name };
-    setUser(u);
-    localStorage.setItem(USER_KEY, JSON.stringify(u));
-    toast(`Добро пожаловать, ${name}!`, 'success');
-    closeModal();
-  }, [toast, closeModal]);
+  const saveSession = useCallback((payload) => {
+    localStorage.setItem('kontur-access-token', payload.tokens.access);
+    localStorage.setItem('kontur-refresh-token', payload.tokens.refresh);
+    setUser(payload.user);
+    localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+  }, []);
 
-  const register = useCallback((name, email) => {
-    const u = { email, name };
-    setUser(u);
-    localStorage.setItem(USER_KEY, JSON.stringify(u));
-    toast(`Регистрация завершена. Добро пожаловать, ${name}!`, 'success');
-    closeModal();
-  }, [toast, closeModal]);
+  const login = useCallback(async (email, password) => {
+    try {
+      const response = await fetch(API.login, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email.trim().toLowerCase(), password }),
+      });
+      const tokens = await jsonOrError(response);
+      const meResponse = await fetch(API.me, {
+        headers: { Authorization: `Bearer ${tokens.access}` },
+      });
+      const userData = await jsonOrError(meResponse);
+      saveSession({ tokens, user: userData });
+      toast(`Добро пожаловать, ${userData.name}!`, 'success');
+      closeModal();
+      return true;
+    } catch (err) {
+      toast(err.message || 'Не удалось войти', 'error');
+      return false;
+    }
+  }, [toast, closeModal, saveSession]);
+
+  const register = useCallback(async (name, email, password) => {
+    try {
+      const response = await fetch(API.register, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password }),
+      });
+      const payload = await jsonOrError(response);
+      saveSession(payload);
+      toast(`Регистрация завершена. Добро пожаловать, ${payload.user.name}!`, 'success');
+      closeModal();
+      return true;
+    } catch (err) {
+      toast(err.message || 'Не удалось зарегистрироваться', 'error');
+      return false;
+    }
+  }, [toast, closeModal, saveSession]);
 
   const logout = useCallback(() => {
     setUser(null);
+    setFavorites([]);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(FAVORITES_KEY);
+    localStorage.removeItem('kontur-access-token');
+    localStorage.removeItem('kontur-refresh-token');
     toast('Вы вышли из аккаунта', 'info');
   }, [toast]);
 
-  // Favorites are a registered-user feature: the toggle only does anything when
-  // someone is logged in (the UI that calls this is itself hidden for guests).
-  const toggleFavorite = useCallback((id) => {
+  useEffect(() => {
+    const access = localStorage.getItem('kontur-access-token');
+    if (!access) return;
+    apiFetch(API.me)
+      .then(jsonOrError)
+      .then((userData) => {
+        setUser(userData);
+        localStorage.setItem(USER_KEY, JSON.stringify(userData));
+      })
+      .catch(() => logout());
+  }, [logout]);
+
+  useEffect(() => {
+    if (!user) return;
+    apiFetch(API.favorites)
+      .then(jsonOrError)
+      .then((data) => {
+        const ids = Array.isArray(data?.ids) ? data.ids : [];
+        setFavorites(ids);
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids));
+      })
+      .catch((err) => console.error('Не удалось загрузить избранное:', err));
+  }, [user]);
+
+  const toggleFavorite = useCallback(async (id) => {
     if (!user) { openModal('auth', { tab: 'login' }); return; }
-    setFavorites(list => {
-      const has = list.includes(id);
-      const next = has ? list.filter(x => x !== id) : [...list, id];
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-      toast(has ? 'Удалено из избранного' : 'Добавлено в избранное', has ? 'info' : 'success');
-      return next;
-    });
-  }, [user, toast, openModal]);
+
+    try {
+      const isFav = favorites.includes(id);
+      const response = await apiFetch(API.like(id), { method: isFav ? 'DELETE' : 'POST' });
+      const data = await jsonOrError(response);
+      setFavorites(list => {
+        const next = data.liked
+          ? (list.includes(id) ? list : [...list, id])
+          : list.filter(x => x !== id);
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+        return next;
+      });
+      toast(data.liked ? 'Добавлено в избранное' : 'Удалено из избранного', data.liked ? 'success' : 'info');
+    } catch (err) {
+      toast(err.message || 'Не удалось изменить избранное', 'error');
+    }
+  }, [user, favorites, toast, openModal]);
 
   // Writes the real cookies a genuine consent banner would control: a necessary
   // cookie always gets set once a choice is made, while analytics/marketing
@@ -312,11 +380,13 @@ export function AppProvider({ children }) {
     isLive, setIsLive,
     cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
     userArticles, publishArticle, removeArticle,
-    favorites, toggleFavorite
+    favorites, toggleFavorite,
+    news, newsLoading, newsError, reloadNews
   }), [lang, setLang, t, user, login, register, logout, toasts, toast, dismissToast,
       modal, openModal, closeModal, activeTopNav, activeSideNav,
       activeTopic, toggleTopic, isLive, cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
-      userArticles, publishArticle, removeArticle, favorites, toggleFavorite]);
+      userArticles, publishArticle, removeArticle, favorites, toggleFavorite,
+      news, newsLoading, newsError, reloadNews]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

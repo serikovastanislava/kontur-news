@@ -31,13 +31,13 @@ function AuthContent({ initialTab = 'login' }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (tab === 'register' && name.trim().length < 2) { setError(t('Введите ваше имя')); return; }
     if (!emailRe.test(email)) { setError(t('Введите корректный email')); return; }
-    if (password.length < 4) { setError(t('Пароль должен быть не короче 4 символов')); return; }
+    if (password.length < 6) { setError(t('Пароль должен быть не короче 6 символов')); return; }
     setError('');
-    if (tab === 'login') login(email); else register(name.trim(), email);
+    if (tab === 'login') await login(email, password); else await register(name.trim(), email, password);
   };
 
   return (
@@ -349,7 +349,7 @@ function SubscribeContent() {
   const { t, toast, closeModal } = useApp();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!emailRe.test(email)) { setError(t('Введите корректный email')); return; }
     setError('');
