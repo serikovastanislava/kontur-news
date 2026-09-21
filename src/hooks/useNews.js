@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API } from '../api';
 
+async function getJson(url) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
 export function useNews() {
   const [news, setNews] = useState([]);
+  const [featured, setFeatured] = useState(null);
+  const [important, setImportant] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadNews = useCallback(async () => {
     try {
-      const response = await fetch(API.news, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      setNews(Array.isArray(data) ? data : []);
+      const [feed, hero, importantFeed] = await Promise.all([
+        getJson(`${API.news}?limit=100`),
+        getJson(API.featured),
+        getJson(`${API.important}?limit=12`),
+      ]);
+      setNews(Array.isArray(feed) ? feed : []);
+      setFeatured(hero || null);
+      setImportant(Array.isArray(importantFeed) ? importantFeed : []);
       setError(null);
     } catch (err) {
       console.error('Ошибка загрузки новостей:', err);
@@ -27,5 +39,5 @@ export function useNews() {
     return () => clearInterval(timer);
   }, [loadNews]);
 
-  return { news, loading, error, reload: loadNews };
+  return { news, featured, important, loading, error, reload: loadNews };
 }

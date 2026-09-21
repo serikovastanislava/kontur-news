@@ -21,7 +21,7 @@ const dict = {
   'Будьте в курсе событий': 'Stay in the loop',
   'Важные новости и эксклюзивные материалы первыми.': 'Important news and exclusive material, first.',
   'Подписаться': 'Subscribe', 'Подписаться →': 'Subscribe →',
-  'Важное': 'Important', 'Все важные события →': 'All important events →',
+  'Важное': 'Important', 'Коротко': 'In brief', 'просмотров': 'views', 'Новости пока не загружены. Запустите parser.': 'No news loaded yet. Start the parser.', 'Показать все →': 'Show all →', 'Новости по категориям': 'News by category', 'просмотров за 7 дней': 'views in 7 days', 'Получаем актуальные курсы…': 'Loading live rates…', 'Данные временно недоступны': 'Data temporarily unavailable', 'Обновление…': 'Updating…', 'Все важные события →': 'All important events →',
   'Лента новостей / Live': 'News feed / Live',
   'Актуальные события': 'Live updates', 'в реальном времени': 'in real time',
   'Курс валют': 'Exchange rate', 'Все курсы →': 'All rates →', 'Рассылка': 'Newsletter',
@@ -95,7 +95,7 @@ const dict = {
   'Нет аккаунта?': "Don't have an account?", 'Зарегистрироваться': 'Sign up',
   'Уже с нами?': 'Already with us?',
   'Введите корректный email': 'Enter a valid email', 'Введите ваше имя': 'Enter your name',
-  'Пароль должен быть не короче 6 символов': 'Password must be at least 6 characters',
+  'Пароль должен быть не короче 8 символов': 'Password must be at least 8 characters',
   'Поделиться': 'Share', 'Ссылка на публикацию скопирована': 'Article link copied',
   'Поиск по сайту': 'Site search', 'Начните вводить — покажем совпадения по заголовкам и рубрикам.':
     'Start typing — we\'ll match headlines and sections.',
@@ -151,7 +151,7 @@ const dict = {
   'Материалы с более чем 100 просмотрами.': 'Stories with more than 100 views.',
   'Материалы, опубликованные не более 2 часов назад.': 'Stories published within the last 2 hours.',
   'Пока нет материалов, подходящих под этот фильтр.': 'Nothing matches this filter yet.',
-  'просмотров': 'views'
+  'просмотров': 'views', 'Читать оригинал': 'Read original', 'Загрузка новостей…': 'Loading news…', 'Обновлено сегодня.': 'Updated today.'
 };
 
 const CONSENT_COOKIE = 'kontur_consent';
@@ -188,7 +188,7 @@ export function AppProvider({ children }) {
   });
   const [userArticles, setUserArticles] = useState(() => readJSON(ARTICLES_KEY, []));
   const [favorites, setFavorites] = useState(() => readJSON(FAVORITES_KEY, []));
-  const { news, loading: newsLoading, error: newsError, reload: reloadNews } = useNews();
+  const { news, featured, important, loading: newsLoading, error: newsError, reload: reloadNews } = useNews();
 
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
@@ -224,7 +224,7 @@ export function AppProvider({ children }) {
       const response = await fetch(API.login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
       const tokens = await jsonOrError(response);
       const meResponse = await fetch(API.me, {
@@ -381,12 +381,12 @@ export function AppProvider({ children }) {
     cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
     userArticles, publishArticle, removeArticle,
     favorites, toggleFavorite,
-    news, newsLoading, newsError, reloadNews
+    news, featured, important, newsLoading, newsError, reloadNews
   }), [lang, setLang, t, user, login, register, logout, toasts, toast, dismissToast,
       modal, openModal, closeModal, activeTopNav, activeSideNav,
       activeTopic, toggleTopic, isLive, cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
       userArticles, publishArticle, removeArticle, favorites, toggleFavorite,
-      news, newsLoading, newsError, reloadNews]);
+      news, featured, important, newsLoading, newsError, reloadNews]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

@@ -15,10 +15,26 @@ export const coverMap = {
 };
 
 export const avatarMap = { 'editor-feature': editorPortrait };
-
 export const fallbackCovers = [cardAi, sideEconomy, cardCulture, sideTech, cardSport, sidePolitics];
 
 export {
   earth, sidePolitics, sideEconomy, sideTech, sideSociety,
   cardAi, cardEconomy, cardCulture, cardSport, editorPortrait
 };
+
+function hashText(value) {
+  let hash = 2166136261;
+  for (const ch of String(value || 'news')) {
+    hash ^= ch.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function remoteNewsImage(item) {
+  const title = String(item?.title || 'news').replace(/[^\p{L}\p{N} ]/gu, ' ').trim();
+  const category = String(item?.category || 'news');
+  const query = `${category} ${title}`.trim().slice(0, 90);
+  const lock = hashText(`${item?.id || ''}|${title}|${category}`) % 100000;
+  return `https://loremflickr.com/1200/800/${encodeURIComponent(query || 'news') }?lock=${lock}`;
+}

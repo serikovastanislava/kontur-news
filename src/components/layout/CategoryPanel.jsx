@@ -1,7 +1,8 @@
-import { Globe2, Landmark, ChartNoAxesCombined, Cpu, Users, Trophy, Palette, FlaskConical, ArrowRight } from 'lucide-react';
+import { useMemo } from 'react';
+import { Globe2, Landmark, ChartNoAxesCombined, Cpu, Users, Trophy, Palette, FlaskConical, ArrowRight, Clock3 } from 'lucide-react';
 import { useApp } from '../../state/store';
-import { getFreshestForCategory } from '../../data/news';
-import { formatRelative, getBaseDate } from '../../utils/time';
+import { formatRelative } from '../../utils/time';
+import { remoteNewsImage } from '../../utils/covers';
 
 const CAT_ICONS = {
   'Мир': Globe2, 'Политика': Landmark, 'Экономика': ChartNoAxesCombined, 'Технологии': Cpu,
@@ -9,26 +10,28 @@ const CAT_ICONS = {
 };
 
 export default function CategoryPanel({ category, onClose }) {
-  const { t, lang, userArticles, openModal } = useApp();
+  const { t, lang, news, openModal } = useApp();
   const Icon = CAT_ICONS[category] || Globe2;
 
-  const staticItem = getFreshestForCategory(category);
-  const userItem = userArticles.find(a => a.category.toLowerCase() === category.toLowerCase());
+  const items = useMemo(() => news
+    .filter(item => String(item.category || '').toLowerCase() === category.toLowerCase())
+    .sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at))
+    .slice(0, 4), [news, category]);
 
-  let fresh = staticItem;
-  let isUser = false;
-  if (userItem && (!staticItem || userItem.publishedAt > getBaseDate(staticItem.id, staticItem.time).getTime())) {
-    fresh = userItem;
-    isUser = true;
-  }
-
-  const open = () => {
-    if (!fresh) return;
-    if (isUser) {
-      openModal('article', { id: fresh.id, category: fresh.category, title: fresh.title, excerpt: fresh.excerpt, author: fresh.source, publishedAt: fresh.publishedAt });
-    } else {
-      openModal('article', { id: fresh.id, category: fresh.category, title: fresh.title, excerpt: fresh.excerpt, time: fresh.time });
-    }
+  const open = (item) => {
+    openModal('article', {
+      id: item.id,
+      category: item.category,
+      title: item.title,
+      excerpt: item.content,
+      author: item.author,
+      source: item.editorial || item.source,
+      url: item.url,
+      publishedAt: item.published_at || item.created_at,
+      imageUrl: item.image_url,
+      imageCredit: item.image_credit,
+      views: item.views,
+    });
     onClose();
   };
 
@@ -39,14 +42,20 @@ export default function CategoryPanel({ category, onClose }) {
         <b>{t(category)}</b>
         <span className="live-dot" title={t('Свежее в разделе')} />
       </div>
-      {fresh ? (
-        <button className="category-panel-fresh" onClick={open}>
-          <span className="category-panel-quote">«{t(fresh.title)}»</span>
-          <span className="category-panel-meta">
-            {isUser ? fresh.source : t('Свежее в разделе')} · {isUser ? formatRelative(new Date(fresh.publishedAt), lang) : t(fresh.time)}
-          </span>
-          <span className="category-panel-cta">{t('Читать материал')}<ArrowRight size={12} /></span>
-        </button>
+
+      {items.length ? (
+        <div className="category-panel-list">
+          {items.map(item => (
+            <button className="category-panel-item" key={item.id} onClick={() => open(item)}>
+              <img src={item.image_url || remoteNewsImage(item)} alt="" />
+              <span className="category-panel-item-copy">
+                <strong>{item.short_title || item.title}</strong>
+                <small><Clock3 size={10} />{formatRelative(new Date(item.published_at || item.created_at), lang)} · {item.source || t('Редакция')}</small>
+              </span>
+            </button>
+          ))}
+          <span className="category-panel-cta">{t('Свежие материалы')} <ArrowRight size={12} /></span>
+        </div>
       ) : (
         <p className="category-panel-empty">{t('Пока нет свежих материалов в этом разделе.')}</p>
       )}

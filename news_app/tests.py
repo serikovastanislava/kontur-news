@@ -1,41 +1,43 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
-from rest_framework.test import APIClient
+from django.urls import reverse
+from rest_framework.test import APITestCase
 
-from .models import FavoriteNews, NewsItem
+from .models import NewsItem
 
 
-class NewsApiTests(TestCase):
+class NewsApiTests(APITestCase):
     def setUp(self):
-        self.client = APIClient()
         self.news = NewsItem.objects.create(
-            title="Тестовая новость",
-            url="https://example.com/test-news",
-            source="Тест",
+            title="Важная новость о новых технологиях",
+            url="https://example.com/news/1",
+            content="Исследователи сообщили о новом проекте.",
+            source="Тестовая редакция",
+            category="Технологии",
+            importance_score=70,
         )
 
-    def test_news_feed_is_public(self):
-        response = self.client.get("/api/news/")
+    def test_feed_contains_category_and_editorial(self):
+        response = self.client.get(reverse("news-feed"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data[0]["title"], "Тестовая новость")
+        self.assertEqual(response.data[0]["category"], "Технологии")
+        self.assertEqual(response.data[0]["editorial"], "Тестовая редакция")
 
-    def test_register_login_and_favorite(self):
-        response = self.client.post("/api/auth/register/", {
+    def test_view_endpoint_counts_weekly_view(self):
+        response = self.client.post(reverse("record-view", args=[self.news.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["weekly_views"], 1)
+
+    def test_registration_and_login(self):
+        response = self.client.post(reverse("register"), {
             "name": "Тестовый пользователь",
             "email": "test@example.com",
-            "password": "secret123",
+            "password": "StrongPass123!",
         }, format="json")
         self.assertEqual(response.status_code, 201)
-
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['tokens']['access']}")
-        me = self.client.get("/api/auth/me/")
-        self.assertEqual(me.status_code, 200)
-        self.assertEqual(me.data["email"], "test@example.com")
-
-        liked = self.client.post(f"/api/news/{self.news.id}/like/")
-        self.assertEqual(liked.status_code, 201)
-        self.assertTrue(liked.data["liked"])
-        self.assertTrue(FavoriteNews.objects.filter(user__email="test@example.com", news_item=self.news).exists())
-
-        favorites = self.client.get("/api/news/favorites/")
-        self.assertEqual(favorites.data["ids"], [self.news.id])
+        self.assertTrue(User.objects.filter(email="test@example.com").exists())
+        login = self.client.post(reverse("login"), {
+            "email": "test@example.com",
+            "password": "StrongPass123!",
+        }, format="json")
+        self.assertEqual(login.status_code, 200)
+        self.assertIn("access", login.data["tokens"])

@@ -8,8 +8,9 @@ import {
   placeholderBody, importantEvents, currencies, allSearchable, getViews
 } from '../../data/news';
 import { getBaseDate, formatRelative } from '../../utils/time';
-import { coverMap, avatarMap, fallbackCovers } from '../../utils/covers';
+import { avatarMap, remoteNewsImage } from '../../utils/covers';
 import videoThumb from '../../assets/crops/video.jpg';
+import { API } from '../../api';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -35,7 +36,7 @@ function AuthContent({ initialTab = 'login' }) {
     e.preventDefault();
     if (tab === 'register' && name.trim().length < 2) { setError(t('Введите ваше имя')); return; }
     if (!emailRe.test(email)) { setError(t('Введите корректный email')); return; }
-    if (password.length < 6) { setError(t('Пароль должен быть не короче 6 символов')); return; }
+    if (password.length < 8) { setError(t('Пароль должен быть не короче 8 символов')); return; }
     setError('');
     if (tab === 'login') await login(email, password); else await register(name.trim(), email, password);
   };
@@ -86,23 +87,32 @@ function Avatar({ id, name }) {
   return <span className="avatar-fallback">{(name || 'K').slice(0, 1).toUpperCase()}</span>;
 }
 
-function ArticleContent({ id, category, title, time, excerpt, author, role, publishedAt }) {
+function ArticleContent({ id, category, title, time, excerpt, author, role, publishedAt, imageUrl, imageCredit, source, url, views: initialViews, weeklyViews: initialWeeklyViews }) {
   const { t, lang, toast, openModal, user, favorites, toggleFavorite } = useApp();
   const catT = t(category);
   const titleT = t(title);
-  const [l0, l1, l2] = placeholderBody(catT, titleT, lang);
-  const lede = excerpt ? t(excerpt) : l0;
-  const paragraphs = [l1];
-  const words = [lede, ...paragraphs, l2].join(' ').split(/\s+/).filter(Boolean).length;
+  const rawExcerpt = excerpt ? String(excerpt).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+  const paragraphs = rawExcerpt.split(/\n\s*\n|(?<=[.!?])\s+(?=[А-ЯA-ZЁ])/).filter(Boolean);
+  const lede = paragraphs[0] || titleT;
+  const words = rawExcerpt.split(/\s+/).filter(Boolean).length;
   const readMins = Math.max(1, Math.round(words / 180));
-  const cover = id ? coverMap[id] : null;
+  const cover = imageUrl || remoteNewsImage({ id, title, category });
   const bylineName = author || 'Редакция «Контур»';
+  const [serverViews, setServerViews] = useState(initialViews || getViews(id || title));
+  const [weeklyViews, setWeeklyViews] = useState(initialWeeklyViews || 0);
+  useEffect(() => {
+    if (!Number.isFinite(Number(id))) return;
+    fetch(API.view(id), { method: 'POST' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) { setServerViews(data.views); setViews(data.views); setWeeklyViews(data.weekly_views); } })
+      .catch(() => {});
+  }, [id]);
   const isFav = id ? favorites.includes(id) : false;
 
   // Live view counter: ticks up while the article stays open, like a "reading now" indicator.
-  const [views, setViews] = useState(() => getViews(id || title));
+  const [views, setViews] = useState(() => serverViews);
   useEffect(() => {
-    const iv = setInterval(() => setViews(v => v + Math.ceil(Math.random() * 3)), 4000 + Math.random() * 3000);
+    const iv = setInterval(() => setViews(v => v + Math.ceil(Math.random() * 2)), 10000);
     return () => clearInterval(iv);
   }, []);
 
@@ -128,12 +138,12 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
 
   const related = allSearchable().filter(it => it.id !== id && it.title !== title).slice(0, 3).map((it, i) => ({
     ...it,
-    img: fallbackCovers[hashNumber(it.id + i, 0, 6)]
+    img: remoteNewsImage(it)
   }));
 
   return (
     <>
-      {cover && <div className="reader-cover"><img src={cover} alt="" /></div>}
+      {cover && <div className="reader-cover"><img src={cover} alt="" />{imageCredit && <small className="image-credit">{imageCredit}</small>}</div>}
       <div className="modal-head reader-head">
         <div className="reader-head-top">
           <span className="pill">{catT}</span>
@@ -148,10 +158,12 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
           <Avatar id={id} name={bylineName} />
           <div>
             <b>{bylineName}</b>
+            {source && <div className="reader-source">{t('Редакция')}: {source}</div>}
             <div className="reader-meta">
               {liveTime && <span>{liveTime}</span>}
               <span><Clock size={11} />{lang === 'en' ? `${readMins} min read` : `${readMins} мин чтения`}</span>
               <span className="live-views"><Eye size={11} />{views}</span>
+              {weeklyViews > 0 && <span>{weeklyViews} за 7 дней</span>}
               {role && <span>{t(role)}</span>}
             </div>
           </div>
@@ -160,7 +172,7 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
       <div className="modal-body reader-body">
         <p className="article-lede">{lede}</p>
         {paragraphs.map((p, i) => <p key={i}>{p}</p>)}
-        <div className="article-pullquote">{l2}</div>
+        {url && <div className="article-source-link"><a href={url} target="_blank" rel="noreferrer">{t('Читать оригинал')} →</a></div>}
         <div className="article-tags"><span>{catT}</span><span>Контур</span></div>
         <div className="article-share-row">
           <span>{t('Поделиться')}:</span>
@@ -176,7 +188,7 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
               <button className="related-item" key={r.id} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time })}>
                 <img src={r.img} alt="" />
                 <span>
-                  <b>{t(r.title)}</b>
+                  <b>{t(r.short_title || r.title)}</b>
                   <small>{t(r.category)}</small>
                 </span>
               </button>
@@ -189,17 +201,25 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
 }
 
 function SearchContent() {
-  const { t, lang, openModal, userArticles } = useApp();
+  const { t, lang, openModal, userArticles, news } = useApp();
   const [q, setQ] = useState('');
   const inputRef = useRef(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
   const all = [
+    ...news.map(a => ({
+      id: a.id, category: a.category, title: a.title, short_title: a.short_title,
+      time: formatRelative(new Date(a.published_at || a.created_at), lang),
+      publishedAt: a.published_at || a.created_at, author: a.author, source: a.source,
+      excerpt: a.content, imageUrl: a.image_url, imageCredit: a.image_credit, url: a.url, views: a.views
+    })),
     ...userArticles.map(a => ({ id: a.id, category: a.category, title: a.title, time: formatRelative(new Date(a.publishedAt), lang), publishedAt: a.publishedAt, author: a.source, excerpt: a.excerpt })),
     ...allSearchable()
   ];
-  const results = q.trim().length
-    ? all.filter(it => t(it.title).toLowerCase().includes(q.trim().toLowerCase()) || t(it.category).toLowerCase().includes(q.trim().toLowerCase()))
-    : all.slice(0, 6);
+  const normalized = q.trim().toLowerCase();
+  const results = normalized
+    ? all.filter(it => [it.title, it.short_title, it.category, it.author, it.source, it.excerpt]
+        .filter(Boolean).some(value => String(value).toLowerCase().includes(normalized)))
+    : all.slice(0, 8);
 
   return (
     <>
@@ -216,8 +236,8 @@ function SearchContent() {
             <div className="search-empty">{lang === 'en' ? `No results for "${q}"` : `Ничего не найдено по запросу «${q}»`}</div>
           )}
           {results.map(r => (
-            <button className="search-result" key={r.id} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time, publishedAt: r.publishedAt, author: r.author, excerpt: r.excerpt })}>
-              <b>{t(r.title)}</b>
+            <button className="search-result" key={`${r.id}-${r.title}`} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time, publishedAt: r.publishedAt, author: r.author, source: r.source, excerpt: r.excerpt, imageUrl: r.imageUrl, imageCredit: r.imageCredit, url: r.url, views: r.views })}>
+              <b>{t(r.short_title || r.title)}</b>
               <span>{r.author ? r.author : t(r.category)}{r.time ? ` · ${r.publishedAt ? r.time : t(r.time)}` : ''}</span>
             </button>
           ))}
@@ -318,16 +338,17 @@ function TimelineInfoContent() {
   );
 }
 
-function CurrencyInfoContent() {
+function CurrencyInfoContent({ currency }) {
   const { t } = useApp();
+  const liveRates = currency?.rates || [];
   return (
     <>
-      <div className="modal-head"><h2 id="rates-title">{t('Курсы валют')}</h2><p>{t('Обновлено сегодня в 12:45.')}</p></div>
+      <div className="modal-head"><h2 id="rates-title">{t('Курсы валют')}</h2><p>{currency?.date ? `ЦБ РФ · ${currency.date}` : t('Обновлено сегодня.')}</p></div>
       <div className="modal-body">
-        {currencies.map(c => (
+        {(liveRates.length ? liveRates : currencies).map(c => (
           <div className="currency-row" key={c.code} style={{ gridTemplateColumns: '1fr auto auto' }}>
-            <b>{c.code}</b><span>{c.value}</span>
-            <em className={c.up ? 'up' : ''}>{c.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {c.delta}</em>
+            <b>{c.code}</b><span>{typeof c.value === 'number' ? c.value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : c.value}</span>
+            <em className={c.up ? 'up' : ''}>{c.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {c.delta || 'RUB'}</em>
           </div>
         ))}
       </div>
@@ -390,7 +411,7 @@ export default function ModalRoot() {
       {type === 'cookie-settings' && <CookieSettingsContent />}
       {type === 'video' && <VideoContent {...props} />}
       {type === 'events' && <TimelineInfoContent />}
-      {type === 'rates' && <CurrencyInfoContent />}
+      {type === 'rates' && <CurrencyInfoContent {...props} />}
       {type === 'subscribe' && <SubscribeContent />}
       {type === 'info' && <InfoTextContent {...props} />}
     </Modal>
