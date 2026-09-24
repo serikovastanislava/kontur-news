@@ -18,7 +18,7 @@ class Command(BaseCommand):
             "--interval",
             type=int,
             default=60,
-            help="Интервал в секундах между проходами",
+            help="Интервал в секундах между проходами (по умолчанию 60 секунд)",
         )
         parser.add_argument(
             "--repair-images",
@@ -47,7 +47,7 @@ class Command(BaseCommand):
         if loop:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Запуск Telegram-парсера в цикле (интервал: {interval} сек)..."
+                    f"Запуск Telegram-парсера: новый проход каждые {interval} сек."
                 )
             )
             while True:
