@@ -23,7 +23,4 @@ export function fallbackNewsImage(item = {}) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export const coverMap = {};
 export const avatarMap = {};
-export const fallbackCovers = [];
-export const remoteNewsImage = () => fallbackNewsImage();

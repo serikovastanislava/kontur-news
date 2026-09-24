@@ -1,13 +1,13 @@
 import NewsImage from './NewsImage';
-import { heroMain, sideStories } from '../../data/news';
 import { useApp } from '../../state/store';
 
 
 export default function HeroNews() {
   const { t, openModal, featured, news } = useApp();
+  const eligible = news.filter(item => String(item.title || '').trim().split(/\s+/).length <= 6);
   const hero = (featured && String(featured.title || '').trim().split(/\s+/).length <= 6)
     ? featured
-    : (news.find(item => String(item.title || '').trim().split(/\s+/).length <= 6) || news[0] || null);
+    : (eligible[0] || null);
   const side = news.filter(item => item.id !== hero?.id).slice(0, 4);
 
   if (!hero) {
@@ -33,7 +33,7 @@ export default function HeroNews() {
 
   return (
     <section className="hero-section">
-      <article className="hero-card" onClick={() => open(hero)}>
+      <article className="hero-card clickable" onClick={() => open(hero)}>
         <NewsImage item={hero} alt="" />
         <div className="hero-tint" />
         <div className="hero-copy">
@@ -41,8 +41,8 @@ export default function HeroNews() {
         </div>
       </article>
       <div className="hero-side">
-        {(side.length ? side : sideStories).map((item) => (
-          <article className="side-story" key={item.id} onClick={() => open(item)}>
+        {side.map((item) => (
+          <article className="side-story clickable" key={item.id} onClick={() => open(item)}>
             <div className={`story-thumb ${item.kind || 'society'}`}><NewsImage item={item} alt="" /></div>
             <div className="side-story-body">
               <span>{t(item.category || 'Новости')}</span>

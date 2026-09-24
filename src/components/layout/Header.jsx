@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, ChevronDown, Menu, LogOut } from 'lucide-react';
+import { BootstrapChatIcon } from '../common/DiscussionsDrawer';
 import Logo from '../common/Logo';
 import MobileDrawer from '../common/MobileDrawer';
 import CategoryPanel from './CategoryPanel';
@@ -7,7 +8,7 @@ import { useApp } from '../../state/store';
 
 const navLinks = ['Мир', 'Политика', 'Экономика', 'Технологии', 'Общество', 'Спорт', 'Культура', 'Наука'];
 
-export default function Header() {
+export default function Header({ onOpenDiscussions }) {
   const { t, lang, setLang, openModal, user, logout, activeTopNav, setActiveTopNav } = useApp();
   const [langOpen, setLangOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -52,6 +53,7 @@ export default function Header() {
       </nav>
       <div className="header-actions">
         <button aria-label="Поиск" title={t('Поиск')} onClick={() => openModal('search')}><Search size={16} /></button>
+        <button aria-label={t('Обсуждения')} title={t('Обсуждения')} className="discussion-header-button" onClick={onOpenDiscussions}><BootstrapChatIcon size={17} /></button>
         <div className="lang-wrap" ref={langRef}>
           <button className="lang" aria-label="Язык" onClick={() => setLangOpen(o => !o)}>
             {lang.toUpperCase()}<ChevronDown size={11} />

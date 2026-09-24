@@ -14,6 +14,9 @@ import { AppProvider, useApp } from './state/store';
 import ModalRoot from './components/common/ModalRoot';
 import ToastStack from './components/common/ToastStack';
 import CookieBanner from './components/common/CookieBanner';
+import DiscussionsDrawer from './components/common/DiscussionsDrawer';
+import { BootstrapChatIcon } from './components/common/DiscussionsDrawer';
+import { useEffect, useState } from 'react';
 
 function MainContent() {
   const { activeSideNav } = useApp();
@@ -34,12 +37,13 @@ function MainContent() {
 }
 
 function Shell() {
+  const [discussionsOpen, setDiscussionsOpen] = useState(false);
   return (
     <div className="site">
       <BrandHero />
       <div className="workspace">
         <div className="dashboard">
-          <Header />
+          <Header onOpenDiscussions={() => setDiscussionsOpen(true)} />
           <div className="page-layout">
             <Sidebar />
             <main className="main-content">
@@ -51,6 +55,8 @@ function Shell() {
         <RightRail />
       </div>
       <Footer />
+      <button className="discussion-fab" onClick={() => setDiscussionsOpen(true)} aria-label="Обсуждения" title="Обсуждения"><BootstrapChatIcon size={24} /></button>
+      <DiscussionsDrawer open={discussionsOpen} onClose={() => setDiscussionsOpen(false)} />
     </div>
   );
 }

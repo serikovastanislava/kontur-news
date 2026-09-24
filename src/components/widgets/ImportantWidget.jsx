@@ -2,15 +2,6 @@ import { Sparkles } from 'lucide-react';
 import { useApp } from '../../state/store';
 import { formatRelative } from '../../utils/time';
 
-function cleanBriefText(value) {
-  const clean = String(value || '')
-    .replace(/\s*[-—–]?\s*Читайте(?:те)?\s+(?:на|подробнее\s+на)\s+сайте[^.!?]*/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const match = clean.match(/^[\s\S]*?[.!?](?:\s|$)/);
-  return (match ? match[0].trim() : clean).replace(/[ \t]+/g, ' ').trim();
-}
-
 export default function ImportantWidget() {
   const { t, lang, important, openModal } = useApp();
   return (

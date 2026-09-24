@@ -19,7 +19,7 @@ export default function CurrencyWidget() {
       } catch { if (alive) setError(true); }
     };
     load();
-    const timer = setInterval(load, 15 * 60 * 1000);
+    const timer = setInterval(load, 10 * 60 * 1000);
     return () => { alive = false; clearInterval(timer); };
   }, []);
 

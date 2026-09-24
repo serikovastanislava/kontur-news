@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import FavoriteNews, NewsItem, NewsView
+from .models import DiscussionMessage, FavoriteNews, NewsItem, NewsView
 from .serializers import NewsItemSerializer
 
 
@@ -120,9 +120,8 @@ def get_featured_news(request):
         .order_by("-published_at", "-created_at")[:80]
     )
 
+    # The hero banner is reserved for short headlines only.
     candidates = [item for item in raw_candidates if len(item.title.split()) <= 6]
-    if not candidates:
-        candidates = raw_candidates
     if not candidates:
         return Response({})
 
@@ -148,32 +147,98 @@ def get_featured_news(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
-def get_important_news(request):
+def search_news(request):
+    """Search parsed news directly in the NewsItem database table."""
+    query = " ".join(str(request.query_params.get("q") or "").split()).strip()
     try:
-        limit = min(max(int(request.query_params.get("limit", 12)), 1), 50)
+        limit = min(max(int(request.query_params.get("limit", 30)), 1), 50)
     except (TypeError, ValueError):
-        limit = 12
+        limit = 30
 
-    since = timezone.now() - timedelta(days=7)
-    items = list(
-        NewsItem.objects.exclude(source__icontains="Панорама")
-        .annotate(
-            weekly_views=Count(
-                "view_events",
-                filter=Q(view_events__viewed_at__gte=since),
+    qs = NewsItem.objects.all()
+    if query:
+        for term in query.split():
+            qs = qs.filter(
+                Q(title__icontains=term)
+                | Q(content__icontains=term)
+                | Q(summary__icontains=term)
+                | Q(source__icontains=term)
+                | Q(category__icontains=term)
             )
-        )
-        .order_by("-importance_score", "-published_at", "-created_at")[:limit]
-    )
-
+    items = qs.order_by("-published_at", "-created_at")[:limit]
     return Response(NewsItemSerializer(items, many=True).data)
 
 
-@api_view(["POST"])
+@api_view(["GET"])
 @permission_classes([AllowAny])
-def register_view(request):
-    # Compatibility alias is intentionally not used; registration belongs in users_app.
-    return Response({"detail": "Use /api/auth/register/"}, status=status.HTTP_400_BAD_REQUEST)
+def discussion_news(request):
+    """Return current DB news with public discussion metadata."""
+    try:
+        limit = min(max(int(request.query_params.get("limit", 20)), 1), 50)
+    except (TypeError, ValueError):
+        limit = 20
+    items = (
+        NewsItem.objects
+        .annotate(discussion_count=Count("discussion_messages"))
+        .order_by("-published_at", "-created_at")[:limit]
+    )
+    data = NewsItemSerializer(items, many=True).data
+    for item, payload in zip(items, data):
+        payload["discussion_count"] = item.discussion_count
+    return Response(data)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([AllowAny])
+def news_discussion(request, news_id):
+    """Publicly readable news discussion; only authenticated users can post."""
+    news_item = NewsItem.objects.filter(pk=news_id).first()
+    if not news_item:
+        return Response({"detail": "Новость не найдена"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        try:
+            limit = min(max(int(request.query_params.get("limit", 100)), 1), 200)
+        except (TypeError, ValueError):
+            limit = 100
+        messages = (
+            DiscussionMessage.objects
+            .filter(news_item=news_item)
+            .select_related("user")
+            .order_by("created_at")[:limit]
+        )
+        return Response([
+            {
+                "id": message.id,
+                "body": message.body,
+                "created_at": message.created_at,
+                "user": {
+                    "id": message.user_id,
+                    "name": message.user.first_name or message.user.email.split("@")[0],
+                },
+            }
+            for message in messages
+        ])
+
+    if not request.user or not request.user.is_authenticated:
+        return Response({"detail": "Для участия в обсуждении войдите в аккаунт"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    body = str(request.data.get("body") or "").strip()
+    if not body:
+        return Response({"detail": "Сообщение не может быть пустым"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(body) > 2000:
+        return Response({"detail": "Сообщение не должно быть длиннее 2000 символов"}, status=status.HTTP_400_BAD_REQUEST)
+
+    message = DiscussionMessage.objects.create(news_item=news_item, user=request.user, body=body)
+    return Response({
+        "id": message.id,
+        "body": message.body,
+        "created_at": message.created_at,
+        "user": {
+            "id": request.user.id,
+            "name": request.user.first_name or request.user.email.split("@")[0],
+        },
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(["POST"])
@@ -246,7 +311,7 @@ def currency_rates(request):
             value = float(item.findtext("Value", "0").replace(",", ".")) / nominal
             rates.append({"code": code, "value": round(value, 4), "nominal": 1})
         payload = {"date": root.attrib.get("Date"), "base": "RUB", "rates": rates, "updated_at": timezone.now()}
-        cache.set("cbr_currency_rates", payload, 15 * 60)
+        cache.set("cbr_currency_rates", payload, 10 * 60)
         return Response(payload)
     except Exception as exc:
         return Response({"detail": "Не удалось получить курсы ЦБ РФ", "error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

@@ -36,7 +36,7 @@ export default function Editorial() {
         <div className="editorial-list">
           {editorialThemes.map(article => (
             <button
-              className="mini-link editorial-link"
+              className="mini-link editorial-link clickable"
               key={article.id}
               onClick={() => openModal('article', {
                 id: article.id,

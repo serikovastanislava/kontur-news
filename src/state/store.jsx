@@ -21,10 +21,10 @@ const dict = {
   'Будьте в курсе событий': 'Stay in the loop',
   'Важные новости и эксклюзивные материалы первыми.': 'Important news and exclusive material, first.',
   'Подписаться': 'Subscribe', 'Подписаться →': 'Subscribe →',
-  'Важное': 'Important', 'Коротко': 'In brief', 'просмотров': 'views', 'Новости пока не загружены. Запустите parser.': 'No news loaded yet. Start the parser.', 'Показать все →': 'Show all →', 'Новости по категориям': 'News by category', 'просмотров за 7 дней': 'views in 7 days', 'Получаем актуальные курсы…': 'Loading live rates…', 'Данные временно недоступны': 'Data temporarily unavailable', 'Обновление…': 'Updating…', 'Все важные события →': 'All important events →',
+  'Важное': 'Important', 'Обсуждения': 'Discussions', 'Текущие новости': 'Current news', 'Обсуждение новости': 'News discussion', 'Войти или зарегистрироваться': 'Log in or sign up', 'Напишите сообщение…': 'Write a message…', 'Войдите, чтобы участвовать в обсуждении': 'Log in to join the discussion', 'Отправить': 'Send', 'Загрузка…': 'Loading…', 'Загрузка сообщений…': 'Loading messages…', 'Пока нет сообщений. Начните обсуждение.': 'No messages yet. Start the discussion.', 'Новости пока не загружены.': 'No news loaded yet.', 'просмотров': 'views', 'Новости пока не загружены. Запустите parser.': 'No news loaded yet. Start the parser.', 'Показать все →': 'Show all →', 'Новости по категориям': 'News by category', 'просмотров за 7 дней': 'views in 7 days', 'Получаем актуальные курсы…': 'Loading live rates…', 'Данные временно недоступны': 'Data temporarily unavailable', 'Обновление…': 'Updating…', 'Все важные события →': 'All important events →',
   'Лента новостей / Live': 'News feed / Live',
   'Актуальные события': 'Live updates', 'в реальном времени': 'in real time',
-  'Курс валют': 'Exchange rate', 'Все курсы →': 'All rates →', 'Рассылка': 'Newsletter',
+  'Курс валют': 'Exchange rate', 'Здесь могла бы быть ваша реклама': 'Your ad could be here', 'Свободное рекламное место': 'Available advertising space', 'Реклама': 'Advertising', 'Все курсы →': 'All rates →', 'Рассылка': 'Newsletter',
   'Главные новости недели': "This week's top news", 'на вашу почту.': 'to your inbox.',
   'События без': 'Events without', 'лишнего шума': 'the noise',
   'Введите ваш email': 'Enter your email', 'Введите email': 'Enter email',
@@ -32,7 +32,7 @@ const dict = {
   'Будьте на шаг впереди': 'Stay one step ahead',
   'Подпишитесь на нашу рассылку и получайте только важные новости.': 'Subscribe to get only the important news.',
   'НОВОСТИ': 'NEWS', 'МНЕНИЯ': 'OPINIONS', 'ГЛАВНОЕ': 'HIGHLIGHTS',
-  'Поиск': 'Search',
+  'Поиск': 'Search', 'Поиск по сайту': 'News search', 'Поиск выполняется напрямую по новостям из базы данных.': 'Search runs directly against news stored in the database.', 'Поиск…': 'Searching…',
 
   // quick-topics + category chips
   'Все': 'All', 'Война в Украине': 'War in Ukraine', 'Климат': 'Climate', 'Бизнес': 'Business',
@@ -74,7 +74,6 @@ const dict = {
   'Кот точит когти': 'Cat scratching',
   'Реальное видео из открытой медиатеки Wikimedia Commons.': 'Real video from the open Wikimedia Commons media library.',
 
-  // important events timeline
   'ЦБ сохранил ключевую ставку': 'Central bank holds its key rate',
   'Новые санкции против ряда компаний': 'New sanctions against several companies',
   'Открытие выставки современного искусства': 'A contemporary art exhibition opens',
@@ -107,7 +106,7 @@ const dict = {
   'Аналитика': 'Analytics', 'Помогают понять, какие материалы читают чаще всего.': 'Help us see which stories get read the most.',
   'Персонализация и реклама': 'Personalization & ads', 'Используются для подбора рекомендаций и рекламы.': 'Used to tailor recommendations and ads.',
   'Сохранить настройки': 'Save settings',
-  'Все важные события': 'All important events', 'Хроника дня, вся в одном месте.': 'The day\'s timeline, all in one place.',
+
   'Курсы валют': 'Exchange rates', 'Обновлено сегодня в 12:45.': 'Updated today at 12:45.',
   'Будьте в курсе событий →': 'Stay in the loop',
   'Важные новости и эксклюзивные материалы — первыми.': 'Important news and exclusive material — first.',
@@ -188,7 +187,7 @@ export function AppProvider({ children }) {
   });
   const [userArticles, setUserArticles] = useState(() => readJSON(ARTICLES_KEY, []));
   const [favorites, setFavorites] = useState(() => readJSON(FAVORITES_KEY, []));
-  const { news, featured, important, loading: newsLoading, error: newsError, reload: reloadNews } = useNews();
+  const { news, featured, loading: newsLoading, error: newsError, reload: reloadNews } = useNews();
 
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
@@ -381,12 +380,12 @@ export function AppProvider({ children }) {
     cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
     userArticles, publishArticle, removeArticle,
     favorites, toggleFavorite,
-    news, featured, important, newsLoading, newsError, reloadNews
+    news, featured, newsLoading, newsError, reloadNews
   }), [lang, setLang, t, user, login, register, logout, toasts, toast, dismissToast,
       modal, openModal, closeModal, activeTopNav, activeSideNav,
       activeTopic, toggleTopic, isLive, cookiePrefs, acceptAllCookies, acceptNecessaryCookies, savePrefsCookies,
       userArticles, publishArticle, removeArticle, favorites, toggleFavorite,
-      news, featured, important, newsLoading, newsError, reloadNews]);
+      news, featured, newsLoading, newsError, reloadNews]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

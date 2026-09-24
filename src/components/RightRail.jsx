@@ -1,6 +1,6 @@
-import ImportantWidget from './widgets/ImportantWidget';
 import LiveWidget from './widgets/LiveWidget';
 import CurrencyWidget from './widgets/CurrencyWidget';
+import AdBanner from './widgets/AdBanner';
 import Logo from './common/Logo';
 import { useApp } from '../state/store';
 
@@ -8,7 +8,7 @@ export default function RightRail() {
   const { t } = useApp();
   return (
     <aside className="right-rail">
-      <ImportantWidget />
+      <AdBanner />
       <LiveWidget />
       <CurrencyWidget />
       <div className="rail-brand">

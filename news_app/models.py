@@ -65,3 +65,29 @@ class FavoriteNews(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "news_item"], name="unique_user_favorite_news")
         ]
+
+class DiscussionMessage(models.Model):
+    news_item = models.ForeignKey(
+        NewsItem,
+        on_delete=models.CASCADE,
+        related_name="discussion_messages",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="discussion_messages",
+    )
+    body = models.TextField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(
+                fields=["news_item", "-created_at"],
+                name="dm_news_created_idx",
+            ),
+        ]
+
+
+

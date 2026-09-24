@@ -10,20 +10,17 @@ async function getJson(url) {
 export function useNews() {
   const [news, setNews] = useState([]);
   const [featured, setFeatured] = useState(null);
-  const [important, setImportant] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadNews = useCallback(async () => {
     try {
-      const [feed, hero, importantFeed] = await Promise.all([
+      const [feed, hero] = await Promise.all([
         getJson(`${API.news}?limit=100`),
         getJson(API.featured),
-        getJson(`${API.important}?limit=12`),
       ]);
       setNews(Array.isArray(feed) ? feed : []);
       setFeatured(hero || null);
-      setImportant(Array.isArray(importantFeed) ? importantFeed : []);
       setError(null);
     } catch (err) {
       console.error('Ошибка загрузки новостей:', err);
@@ -39,5 +36,5 @@ export function useNews() {
     return () => clearInterval(timer);
   }, [loadNews]);
 
-  return { news, featured, important, loading, error, reload: loadNews };
+  return { news, featured, loading, error, reload: loadNews };
 }

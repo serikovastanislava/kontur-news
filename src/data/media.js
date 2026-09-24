@@ -52,4 +52,3 @@ export const catMedia = [
   },
 ];
 
-export const defaultCatMedia = catMedia[0];

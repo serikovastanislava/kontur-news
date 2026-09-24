@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Mail, Lock, User as UserIcon, Send, MessageCircle, Link2, Play, Pause, TrendingUp, TrendingDown, Clock, Eye, Heart
+  Mail, Lock, User as UserIcon, Send, MessageCircle, Link2, TrendingUp, TrendingDown, Clock, Eye, Heart
 } from 'lucide-react';
 import Modal from './Modal';
 import { useApp } from '../../state/store';
 import {
-  placeholderBody, importantEvents, currencies, allSearchable, getViews
+  currencies, getViews
 } from '../../data/news';
 import { getBaseDate, formatRelative } from '../../utils/time';
 import { avatarMap, fallbackNewsImage } from '../../utils/covers';
@@ -255,95 +255,56 @@ function displayNewsTitle(title, source = '') {
   return colon > 0 ? value.slice(0, colon).trim() : value;
 }
 
-function normalizeSearchText(value) {
-  return String(value || '')
-    .replace(/<[^>]+>/g, ' ')
-    .toLocaleLowerCase('ru-RU')
-    .replace(/ё/g, 'е')
-    .replace(/[^\\p{L}\\p{N}]+/gu, ' ')
-    .replace(/\\s+/g, ' ')
-    .trim();
-}
-
-function dedupeSearchItems(items) {
-  const stop = new Set(['и','в','во','на','по','из','к','с','со','для','что','как','о','об','от','до','за','при','а','но','или','это','у','не','же','год','года','году','новый','новые']);
-  const roots = (value) => normalizeSearchText(value).split(' ')
-    .filter(w => w.length > 3 && !stop.has(w))
-    .map(w => w
-      .replace(/(ами|ями|ого|ему|ому|ими|ыми|ами|ов|ев|ей|ам|ям|ах|ях|ом|ем|ой|ый|ий|ая|яя|ое|ее|ые|ие|а|я|ы|и|о|е|у|ю)$/u, '')
-      .replace(/центробанк/u, 'цб'));
-  const unique = [];
-  for (const item of items) {
-    const exact = normalizeSearchText(item.title);
-    if (!exact) continue;
-    let duplicate = false;
-    for (const kept of unique) {
-      const a = new Set(roots(exact));
-      const b = new Set(roots(kept.title));
-      const common = [...a].filter(x => b.has(x)).length;
-      const ratio = common / Math.max(1, Math.min(a.size, b.size));
-      if (exact === normalizeSearchText(kept.title) || (Math.min(a.size, b.size) >= 4 && ratio >= 0.82)) {
-        duplicate = true;
-        break;
-      }
-    }
-    if (!duplicate) unique.push(item);
-  }
-  return unique;
-}
-
 function SearchContent() {
-  const { t, lang, openModal, userArticles, news, important, featured } = useApp();
+  const { t, lang, openModal } = useApp();
   const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
+
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const all = useMemo(() => dedupeSearchItems([
-    ...userArticles.map(a => ({ id: a.id, category: a.category, title: a.title, time: formatRelative(new Date(a.publishedAt), lang), publishedAt: a.publishedAt, author: a.source, excerpt: a.excerpt })),
-    ...(news || []).map(a => ({
-      id: a.id, category: a.category, title: a.title, time: a.published_at || a.created_at ? formatRelative(new Date(a.published_at || a.created_at), lang) : '',
-      publishedAt: a.published_at || a.created_at, author: a.author || a.source, excerpt: a.content, source: a.editorial || a.source, url: a.url,
-      imageUrl: a.image_url, imageCredit: a.image_credit, views: a.views
-    })),
-    ...(important || []).map(a => ({
-      id: a.id, category: a.category, title: a.title, time: a.published_at || a.created_at ? formatRelative(new Date(a.published_at || a.created_at), lang) : '',
-      publishedAt: a.published_at || a.created_at, author: a.author || a.source, excerpt: a.summary || a.content, source: a.editorial || a.source,
-      imageUrl: a.image_url, imageCredit: a.image_credit, views: a.views
-    })),
-    ...(featured ? [{
-      id: featured.id, category: featured.category, title: featured.title, time: featured.published_at || featured.created_at ? formatRelative(new Date(featured.published_at || featured.created_at), lang) : '',
-      publishedAt: featured.published_at || featured.created_at, author: featured.author || featured.source, excerpt: featured.content || featured.summary,
-      source: featured.editorial || featured.source, url: featured.url, imageUrl: featured.image_url, imageCredit: featured.image_credit, views: featured.views
-    }] : []),
-    ...allSearchable()
-  ]), [userArticles, news, important, featured, lang]);
-
-  const results = q.trim().length
-    ? all.filter(it => {
-        const query = normalizeSearchText(q);
-        const haystack = normalizeSearchText([it.title, it.category, it.excerpt, it.author, it.source].filter(Boolean).join(' '));
-        return query.split(' ').filter(Boolean).every(word => haystack.includes(word));
-      })
-    : all.slice(0, 6);
+  useEffect(() => {
+    let alive = true;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const url = new URL(API.search, window.location.origin);
+        if (q.trim()) url.searchParams.set('q', q.trim());
+        url.searchParams.set('limit', '30');
+        const response = await fetch(url.toString(), { cache: 'no-store', signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.detail || 'Search failed');
+        if (alive) setResults(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (err.name !== 'AbortError' && alive) setResults([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }, q.trim() ? 220 : 0);
+    return () => { alive = false; controller.abort(); clearTimeout(timer); };
+  }, [q]);
 
   return (
     <>
       <div className="modal-head">
         <h2 id="search-title">{t('Поиск по сайту')}</h2>
-        <p>{t('Начните вводить — покажем совпадения по заголовкам и рубрикам.')}</p>
+        <p>{t('Поиск выполняется напрямую по новостям из базы данных.')}</p>
       </div>
       <div className="modal-body">
         <div className="search-input-row">
           <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder={t('Например: санкции, спутник, рубль…')} />
         </div>
         <div className="search-results">
-          {results.length === 0 && (
-            <div className="search-empty">{lang === 'en' ? `No results for "${q}"` : `Ничего не найдено по запросу «${q}»`}</div>
+          {loading && <div className="search-empty">{t('Поиск…')}</div>}
+          {!loading && results.length === 0 && (
+            <div className="search-empty">{q.trim() ? `${lang === 'en' ? 'No results for' : 'Ничего не найдено по запросу'} «${q}»` : t('Новости пока не загружены.')}</div>
           )}
-          {results.map(r => (
-            <button className="search-result" key={r.id} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time, publishedAt: r.publishedAt, author: r.author, excerpt: r.excerpt, source: r.source, url: r.url, imageUrl: r.imageUrl, imageCredit: r.imageCredit, views: r.views })}>
+          {!loading && results.map(r => (
+            <button className="search-result" key={r.id} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, publishedAt: r.published_at || r.created_at, author: r.author, excerpt: r.content || r.summary, source: r.source, url: r.url, imageUrl: r.image_url, imageCredit: r.image_credit, views: r.views })}>
               <b>{t(displayNewsTitle(r.title, r.source))}</b>
-              <span>{r.author ? r.author : t(r.category)}{r.time ? ` · ${r.publishedAt ? r.time : t(r.time)}` : ''}</span>
+              <span>{r.source || r.author || t(r.category)} · {formatRelative(new Date(r.published_at || r.created_at), lang)}</span>
             </button>
           ))}
         </div>
@@ -436,22 +397,6 @@ function VideoContent({ title, desc, duration, videoUrl, videoType, videoCredit 
   );
 }
 
-function TimelineInfoContent() {
-  const { t } = useApp();
-  return (
-    <>
-      <div className="modal-head"><h2 id="events-title">{t('Все важные события')}</h2><p>{t('Хроника дня, вся в одном месте.')}</p></div>
-      <div className="modal-body">
-        {importantEvents.map(ev => (
-          <div className="toggle-row" key={ev.id}>
-            <div><b>{ev.time}</b><p>{t(ev.text)}</p></div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
 function CurrencyInfoContent({ currency }) {
   const { t } = useApp();
   const liveRates = currency?.rates || [];
@@ -513,7 +458,7 @@ export default function ModalRoot() {
   const { type, props } = modal;
   const labelMap = {
     auth: 'auth-title', article: 'article-title', search: 'search-title',
-    'cookie-settings': 'cookie-title', video: 'video-title', events: 'events-title',
+    'cookie-settings': 'cookie-title', video: 'video-title',
     rates: 'rates-title', subscribe: 'subscribe-title'
   };
 
@@ -524,7 +469,6 @@ export default function ModalRoot() {
       {type === 'search' && <SearchContent />}
       {type === 'cookie-settings' && <CookieSettingsContent />}
       {type === 'video' && <VideoContent {...props} />}
-      {type === 'events' && <TimelineInfoContent />}
       {type === 'rates' && <CurrencyInfoContent {...props} />}
       {type === 'subscribe' && <SubscribeContent />}
       {type === 'info' && <InfoTextContent {...props} />}
