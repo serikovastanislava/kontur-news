@@ -13,7 +13,46 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import FavoriteNews, NewsItem, NewsView
-from .serializers import NewsSerializer
+from .serializers import NewsItemSerializer
+
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def translate_article(request):
+    """Translate an article title and body to English, preserving paragraph boundaries."""
+    title = str(request.data.get("title") or "").strip()
+    body = str(request.data.get("body") or "").strip()
+
+    def translate_text(text):
+        if not text:
+            return ""
+        # Google Translate's public endpoint has a practical URL-size limit, so
+        # translate in chunks and preserve paragraph boundaries.
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+        translated_parts = []
+        for paragraph in paragraphs:
+            chunks = [paragraph[i:i + 3500] for i in range(0, len(paragraph), 3500)]
+            out = []
+            for chunk in chunks:
+                response = requests.get(
+                    "https://translate.googleapis.com/translate_a/single",
+                    params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t", "q": chunk},
+                    timeout=15,
+                    headers={"User-Agent": "Kontur/1.0"},
+                )
+                response.raise_for_status()
+                payload = response.json()
+                out.append("".join(part[0] for part in (payload[0] or []) if part and part[0]))
+            translated_parts.append("".join(out).strip())
+        return "\n\n".join(translated_parts).strip()
+
+    if not title and not body:
+        return Response({"title": "", "body": ""})
+    try:
+        return Response({"title": translate_text(title), "body": translate_text(body)})
+    except Exception as exc:
+        return Response({"detail": "Не удалось перевести материал", "error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(["GET"])
@@ -24,50 +63,40 @@ def get_news_feed(request):
     except (TypeError, ValueError):
         limit = 100
 
-    category = (request.query_params.get("category") or "").strip()
-    query = (request.query_params.get("q") or "").strip()
-
+    category = request.query_params.get("category")
     base = NewsItem.objects.all()
     if category and category != "Все":
-        base = base.filter(category__iexact=category)
+        qs = base.filter(category=category).order_by("-published_at", "-created_at")[:limit]
+        return Response(NewsItemSerializer(qs, many=True).data)
 
-    if query:
-        base = base.filter(
-            models.Q(title__icontains=query)
-            | models.Q(summary__icontains=query)
-            | models.Q(content__icontains=query)
-            | models.Q(source__icontains=query)
-            | models.Q(category__icontains=query)
-        )
+    panorama_slots = limit // 20
+    normal_limit = limit - panorama_slots
+    normal = list(
+        base.exclude(source__icontains="Панорама")
+        .order_by("-published_at", "-created_at")[:normal_limit]
+    )
+    panorama = list(
+        base.filter(source__icontains="Панорама")
+        .order_by("-published_at", "-created_at")[:panorama_slots]
+    )
 
-    # For the main feed Panorama occupies every 20th position. Category/search
-    # requests stay pure: users should see all matching articles, not a mixed feed.
-    if not category and not query:
-        panorama_slots = max(0, limit // 20)
-        normal_limit = limit - panorama_slots
-        normal = list(
-            base.exclude(source__icontains="Панорама")
-            .order_by("-published_at", "-created_at")[:normal_limit]
-        )
-        panorama = list(
-            base.filter(source__icontains="Панорама")
-            .order_by("-published_at", "-created_at")[:panorama_slots]
-        )
-        result = []
-        normal_i = panorama_i = 0
-        for position in range(1, limit + 1):
-            if position % 20 == 0 and panorama_i < len(panorama):
-                result.append(panorama[panorama_i]); panorama_i += 1
-            elif normal_i < len(normal):
-                result.append(normal[normal_i]); normal_i += 1
-            elif panorama_i < len(panorama):
-                result.append(panorama[panorama_i]); panorama_i += 1
-            else:
-                break
-    else:
-        result = list(base.order_by("-published_at", "-created_at")[:limit])
+    result = []
+    normal_i = 0
+    panorama_i = 0
+    for position in range(1, limit + 1):
+        if position % 20 == 0 and panorama_i < len(panorama):
+            result.append(panorama[panorama_i])
+            panorama_i += 1
+        elif normal_i < len(normal):
+            result.append(normal[normal_i])
+            normal_i += 1
+        elif panorama_i < len(panorama):
+            result.append(panorama[panorama_i])
+            panorama_i += 1
+        else:
+            break
 
-    return Response(NewsSerializer(result, many=True).data)
+    return Response(NewsItemSerializer(result, many=True).data)
 
 
 @api_view(["GET"])
@@ -80,7 +109,7 @@ def get_featured_news(request):
     stable and explainable.
     """
     since = timezone.now() - timedelta(days=7)
-    candidates = list(
+    raw_candidates = list(
         NewsItem.objects.exclude(source__icontains="Панорама")
         .annotate(
             weekly_views=Count(
@@ -91,6 +120,9 @@ def get_featured_news(request):
         .order_by("-published_at", "-created_at")[:80]
     )
 
+    candidates = [item for item in raw_candidates if len(item.title.split()) <= 6]
+    if not candidates:
+        candidates = raw_candidates
     if not candidates:
         return Response({})
 
@@ -108,7 +140,7 @@ def get_featured_news(request):
         return freshness * 45 + editorial * 35 + engagement * 20
 
     item = max(candidates, key=score)
-    data = NewsSerializer(item).data
+    data = NewsItemSerializer(item).data
     data["weekly_views"] = item.weekly_views
     data["selection_score"] = round(score(item), 2)
     return Response(data)
@@ -134,7 +166,7 @@ def get_important_news(request):
         .order_by("-importance_score", "-published_at", "-created_at")[:limit]
     )
 
-    return Response(NewsSerializer(items, many=True).data)
+    return Response(NewsItemSerializer(items, many=True).data)
 
 
 @api_view(["POST"])

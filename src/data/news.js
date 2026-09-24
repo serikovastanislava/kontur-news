@@ -45,10 +45,10 @@ export const rankings = [
 ];
 
 export const videoFeature = {
-  id: 'video-1',
-  title: 'Новый этап: запуск спутника связи',
-  desc: 'Как это повлияет на развитие технологий и жизнь людей.',
-  duration: '04:32'
+  id: 'video-cat-1',
+  title: 'Кот точит когти',
+  desc: 'Реальное видео из открытой медиатеки Wikimedia Commons.',
+  duration: '00:21'
 };
 
 export const importantEvents = [

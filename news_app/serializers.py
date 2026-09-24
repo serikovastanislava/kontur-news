@@ -2,27 +2,24 @@ from rest_framework import serializers
 from .models import NewsItem
 
 
-def shorten_headline(value, max_length=92):
-    text = " ".join(str(value or "").split())
-    if len(text) <= max_length:
-        return text
-    cut = text[:max_length + 1].rsplit(" ", 1)[0].rstrip(" ,:;—–-\"")
-    return (cut or text[:max_length]).rstrip() + "…"
-
-
-class NewsSerializer(serializers.ModelSerializer):
-    editorial = serializers.CharField(source="source", read_only=True)
-    is_important = serializers.BooleanField(read_only=True)
-    short_title = serializers.SerializerMethodField()
-
-    def get_short_title(self, obj):
-        return shorten_headline(obj.title)
+class NewsItemSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = NewsItem
-        fields = [
-            "id", "title", "short_title", "url", "content", "summary",
-            "image_url", "image_credit", "source", "editorial", "author",
-            "category", "created_at", "published_at", "views",
-            "importance_score", "is_important",
-        ]
+        fields = "__all__"
+
+    def get_image_url(self, obj):
+        if not obj.image_url:
+            return None
+        # Local media is deliberately same-origin. The frontend nginx serves
+        # /media/ from the shared media volume, so there is no localhost:8000
+        # or CORS dependency in the browser.
+        if obj.image_url.startswith("/media/"):
+            return obj.image_url
+        if obj.image_url.startswith(("http://", "https://")):
+            return obj.image_url
+        return f"/{obj.image_url.lstrip('/')}"
+
+
+NewsSerializer = NewsItemSerializer

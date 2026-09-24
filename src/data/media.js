@@ -1,0 +1,55 @@
+// Real 16:9 cat videos from Wikimedia Commons.
+// All selected files are published under Creative Commons licences.
+export const catMedia = [
+  {
+    id: 'cat-scratching',
+    title: 'Кот точит когти',
+    duration: '00:21',
+    source: 'Wikimedia Commons · CC BY-SA 4.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_scratching.webm',
+  },
+  {
+    id: 'cat-kittens',
+    title: 'Кот и его котята',
+    duration: '03:39',
+    source: 'Wikimedia Commons · CC BY-SA 3.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_and_kittens.webm',
+  },
+  {
+    id: 'cat-fish-tank',
+    title: 'Кот смотрит на рыбок',
+    duration: '00:31',
+    source: 'Wikimedia Commons · CC BY 3.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_reacting_to_a_fish_tank.webm',
+  },
+  {
+    id: 'cat-playing',
+    title: 'Кот играет у окна',
+    duration: '00:38',
+    source: 'Wikimedia Commons · CC BY-SA 4.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_Play.webm',
+  },
+  {
+    id: 'cat-watching-birds',
+    title: 'Кот наблюдает за птицами',
+    duration: '00:04',
+    source: 'Wikimedia Commons · CC BY-SA 2.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_body_language.webm',
+  },
+  {
+    id: 'cat-track-toy',
+    title: 'Кот играет с игрушкой',
+    duration: '01:33',
+    source: 'Wikimedia Commons · CC BY-SA 3.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_playing_with_a_round_track_toy.webm',
+  },
+  {
+    id: 'cat-play-garden',
+    title: 'Кот резвится во дворе',
+    duration: '00:47',
+    source: 'Wikimedia Commons · CC BY-SA 4.0',
+    url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_play_01.webm',
+  },
+];
+
+export const defaultCatMedia = catMedia[0];

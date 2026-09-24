@@ -1,40 +1,56 @@
 from django.core.management.base import BaseCommand
 
 from news_app.models import NewsItem
-from news_app.parser import extract_article_page, find_free_image, make_summary
+from news_app.parser import extract_article_metadata, make_excerpt
 
 
 class Command(BaseCommand):
-    help = "Fetch full article text, author, dates and free covers for existing news."
+    help = "Refresh source metadata, short excerpts and source image URLs for existing news."
 
     def handle(self, *args, **options):
         changed = 0
+
         for item in NewsItem.objects.all().iterator():
-            content, author, published_at = extract_article_page(
+            metadata = extract_article_metadata(
                 item.url,
-                item.source,
+                item.source or "Источник",
                 item.author or "Редакция",
             )
+
             update_fields = []
-            if content and len(content) > len(item.content or ""):
-                item.content = content
-                update_fields.append("content")
+
+            if metadata.get("title") and len(metadata["title"]) >= 15:
+                if metadata["title"] != item.title:
+                    item.title = metadata["title"][:500]
+                    update_fields.append("title")
+
+            excerpt = metadata.get("excerpt") or item.summary or item.content
+            excerpt = make_excerpt(excerpt, item.title)
+            if excerpt != item.summary:
+                item.summary = excerpt
+                item.content = excerpt
+                update_fields.extend(["summary", "content"])
+
+            author = metadata.get("author") or item.author
             if author and author != item.author:
                 item.author = author[:160]
                 update_fields.append("author")
-            if published_at and not item.published_at:
-                item.published_at = published_at
+
+            if metadata.get("published_at") and not item.published_at:
+                item.published_at = metadata["published_at"]
                 update_fields.append("published_at")
-            if item.content:
-                item.summary = make_summary(item.content, item.title)
-                update_fields.append("summary")
-            if not item.image_url:
-                picked = find_free_image(item.title, item.category)
-                if picked.get("url"):
-                    item.image_url = picked["url"]
-                    item.image_credit = picked.get("credit", "")
-                    update_fields += ["image_url", "image_credit"]
+
+            if metadata.get("image_url") and not item.image_url:
+                item.image_url = metadata["image_url"]
+                item.image_credit = f"Источник: {item.source}" if item.source else ""
+                update_fields.extend(["image_url", "image_credit"])
+
             if update_fields:
-                item.save(update_fields=sorted(set(update_fields)))
+                item.save(update_fields=sorted(set(update_fields + ["updated_at"])))
                 changed += 1
-        self.stdout.write(self.style.SUCCESS(f"Обновлено материалов: {changed}"))
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Обновлено материалов: {changed}"
+            )
+        )

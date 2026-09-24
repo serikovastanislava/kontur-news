@@ -1,6 +1,6 @@
 import { Eye } from 'lucide-react';
 import { useApp } from '../../state/store';
-import { remoteNewsImage } from '../../utils/covers';
+import NewsImage from './NewsImage';
 
 export default function PopularGrid() {
   const { t, activeTopic, toggleTopic, openModal, news } = useApp();
@@ -29,7 +29,7 @@ export default function PopularGrid() {
             author: item.author, source: item.editorial || item.source, url: item.url,
             publishedAt: item.published_at || item.created_at, imageUrl: item.image_url, imageCredit: item.image_credit, views: item.views,
           })}>
-            <div className="card-image" style={{ backgroundImage: `url(${item.image_url || remoteNewsImage(item)})` }}>
+            <div className="card-image"><NewsImage item={item} alt="" />
               <span>{t(item.category)}</span>
             </div>
             <h3>{item.title}</h3>

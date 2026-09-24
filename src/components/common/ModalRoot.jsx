@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Mail, Lock, User as UserIcon, Send, MessageCircle, Link2, Play, Pause, TrendingUp, TrendingDown, Clock, Eye, Heart
 } from 'lucide-react';
@@ -8,8 +8,7 @@ import {
   placeholderBody, importantEvents, currencies, allSearchable, getViews
 } from '../../data/news';
 import { getBaseDate, formatRelative } from '../../utils/time';
-import { avatarMap, remoteNewsImage } from '../../utils/covers';
-import videoThumb from '../../assets/crops/video.jpg';
+import { avatarMap, fallbackNewsImage } from '../../utils/covers';
 import { API } from '../../api';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -88,15 +87,18 @@ function Avatar({ id, name }) {
 }
 
 function ArticleContent({ id, category, title, time, excerpt, author, role, publishedAt, imageUrl, imageCredit, source, url, views: initialViews, weeklyViews: initialWeeklyViews }) {
-  const { t, lang, toast, openModal, user, favorites, toggleFavorite } = useApp();
+  const { t, lang, toast, openModal, user, favorites, toggleFavorite, news } = useApp();
+  const [translated, setTranslated] = useState(null);
+  const [translating, setTranslating] = useState(false);
   const catT = t(category);
-  const titleT = t(title);
-  const rawExcerpt = excerpt ? String(excerpt).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+  const originalBody = excerpt ? String(excerpt).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+  const titleT = translated?.title || t(title);
+  const rawExcerpt = translated?.body || originalBody;
   const paragraphs = rawExcerpt.split(/\n\s*\n|(?<=[.!?])\s+(?=[А-ЯA-ZЁ])/).filter(Boolean);
   const lede = paragraphs[0] || titleT;
   const words = rawExcerpt.split(/\s+/).filter(Boolean).length;
   const readMins = Math.max(1, Math.round(words / 180));
-  const cover = imageUrl || remoteNewsImage({ id, title, category });
+  const coverItem = { id, title, category, image_url: '' };
   const bylineName = author || 'Редакция «Контур»';
   const [serverViews, setServerViews] = useState(initialViews || getViews(id || title));
   const [weeklyViews, setWeeklyViews] = useState(initialWeeklyViews || 0);
@@ -136,14 +138,51 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
     toast(t('Ссылка на публикацию скопирована'), 'success');
   };
 
-  const related = allSearchable().filter(it => it.id !== id && it.title !== title).slice(0, 3).map((it, i) => ({
-    ...it,
-    img: remoteNewsImage(it)
-  }));
+  const translateArticle = async () => {
+    if (lang !== 'en' || translated || translating) return;
+    setTranslating(true);
+    try {
+      const response = await fetch(API.base + '/news/translate/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: String(title || ''), body: originalBody }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || 'translation failed');
+      setTranslated({
+        title: String(data.title || title),
+        body: String(data.body || originalBody),
+      });
+    } catch {
+      toast(lang === 'en' ? 'Translation is temporarily unavailable' : 'Перевод временно недоступен', 'error');
+    } finally { setTranslating(false); }
+  };
+
+  useEffect(() => {
+    if (lang !== 'en' || translated || translating || !title) return;
+    translateArticle();
+  }, [lang, title, originalBody, translated, translating]);
+
+  const related = [...(news || [])]
+    .filter(it => String(it.id) !== String(id) && it.title !== title)
+    .sort((a, b) => new Date(b.published_at || b.created_at || 0) - new Date(a.published_at || a.created_at || 0))
+    .slice(0, 3)
+    .map(it => ({ ...it, img: fallbackNewsImage(it) }));
 
   return (
     <>
-      {cover && <div className="reader-cover"><img src={cover} alt="" />{imageCredit && <small className="image-credit">{imageCredit}</small>}</div>}
+      <div className={`reader-cover${coverItem.image_url ? '' : ' is-placeholder'}` }>
+        <img
+          src={coverItem.image_url || fallbackNewsImage(coverItem)}
+          alt=""
+          onError={(e) => {
+            const fallback = fallbackNewsImage(coverItem);
+            e.currentTarget.classList.add('is-fallback');
+            if (e.currentTarget.src !== new URL(fallback, window.location.href).href) e.currentTarget.src = fallback;
+          }}
+          decoding="async"
+        />
+        {imageCredit && coverItem.image_url && <small className="image-credit">{imageCredit}</small>}
+      </div>
       <div className="modal-head reader-head">
         <div className="reader-head-top">
           <span className="pill">{catT}</span>
@@ -154,6 +193,11 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
           )}
         </div>
         <h2 id="article-title">{titleT}</h2>
+        {lang === 'en' && !translated && (
+          <button className="translate-article-btn" onClick={translateArticle} disabled={translating}>
+            {translating ? 'Translating…' : 'Translate article'}
+          </button>
+        )}
         <div className="reader-byline">
           <Avatar id={id} name={bylineName} />
           <div>
@@ -185,10 +229,14 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
           <div className="article-related">
             <h4>{lang === 'en' ? 'Read next' : 'Читайте также'}</h4>
             {related.map(r => (
-              <button className="related-item" key={r.id} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time })}>
+              <button className="related-item" key={r.id} onClick={() => openModal('article', {
+                id: r.id, category: r.category, title: r.title, excerpt: r.content,
+                author: r.author, source: r.editorial || r.source, url: r.url,
+                publishedAt: r.published_at || r.created_at, imageUrl: r.image_url, imageCredit: r.image_credit, views: r.views
+              })}>
                 <img src={r.img} alt="" />
                 <span>
-                  <b>{t(r.short_title || r.title)}</b>
+                  <b>{t(displayNewsTitle(r.title, r.source))}</b>
                   <small>{t(r.category)}</small>
                 </span>
               </button>
@@ -200,26 +248,83 @@ function ArticleContent({ id, category, title, time, excerpt, author, role, publ
   );
 }
 
+function displayNewsTitle(title, source = '') {
+  const value = String(title || '').trim();
+  if (!String(source || '').toLowerCase().includes('панорама')) return value;
+  const colon = value.indexOf(':');
+  return colon > 0 ? value.slice(0, colon).trim() : value;
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, ' ')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е')
+    .replace(/[^\\p{L}\\p{N}]+/gu, ' ')
+    .replace(/\\s+/g, ' ')
+    .trim();
+}
+
+function dedupeSearchItems(items) {
+  const stop = new Set(['и','в','во','на','по','из','к','с','со','для','что','как','о','об','от','до','за','при','а','но','или','это','у','не','же','год','года','году','новый','новые']);
+  const roots = (value) => normalizeSearchText(value).split(' ')
+    .filter(w => w.length > 3 && !stop.has(w))
+    .map(w => w
+      .replace(/(ами|ями|ого|ему|ому|ими|ыми|ами|ов|ев|ей|ам|ям|ах|ях|ом|ем|ой|ый|ий|ая|яя|ое|ее|ые|ие|а|я|ы|и|о|е|у|ю)$/u, '')
+      .replace(/центробанк/u, 'цб'));
+  const unique = [];
+  for (const item of items) {
+    const exact = normalizeSearchText(item.title);
+    if (!exact) continue;
+    let duplicate = false;
+    for (const kept of unique) {
+      const a = new Set(roots(exact));
+      const b = new Set(roots(kept.title));
+      const common = [...a].filter(x => b.has(x)).length;
+      const ratio = common / Math.max(1, Math.min(a.size, b.size));
+      if (exact === normalizeSearchText(kept.title) || (Math.min(a.size, b.size) >= 4 && ratio >= 0.82)) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (!duplicate) unique.push(item);
+  }
+  return unique;
+}
+
 function SearchContent() {
-  const { t, lang, openModal, userArticles, news } = useApp();
+  const { t, lang, openModal, userArticles, news, important, featured } = useApp();
   const [q, setQ] = useState('');
   const inputRef = useRef(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
-  const all = [
-    ...news.map(a => ({
-      id: a.id, category: a.category, title: a.title, short_title: a.short_title,
-      time: formatRelative(new Date(a.published_at || a.created_at), lang),
-      publishedAt: a.published_at || a.created_at, author: a.author, source: a.source,
-      excerpt: a.content, imageUrl: a.image_url, imageCredit: a.image_credit, url: a.url, views: a.views
-    })),
+
+  const all = useMemo(() => dedupeSearchItems([
     ...userArticles.map(a => ({ id: a.id, category: a.category, title: a.title, time: formatRelative(new Date(a.publishedAt), lang), publishedAt: a.publishedAt, author: a.source, excerpt: a.excerpt })),
+    ...(news || []).map(a => ({
+      id: a.id, category: a.category, title: a.title, time: a.published_at || a.created_at ? formatRelative(new Date(a.published_at || a.created_at), lang) : '',
+      publishedAt: a.published_at || a.created_at, author: a.author || a.source, excerpt: a.content, source: a.editorial || a.source, url: a.url,
+      imageUrl: a.image_url, imageCredit: a.image_credit, views: a.views
+    })),
+    ...(important || []).map(a => ({
+      id: a.id, category: a.category, title: a.title, time: a.published_at || a.created_at ? formatRelative(new Date(a.published_at || a.created_at), lang) : '',
+      publishedAt: a.published_at || a.created_at, author: a.author || a.source, excerpt: a.summary || a.content, source: a.editorial || a.source,
+      imageUrl: a.image_url, imageCredit: a.image_credit, views: a.views
+    })),
+    ...(featured ? [{
+      id: featured.id, category: featured.category, title: featured.title, time: featured.published_at || featured.created_at ? formatRelative(new Date(featured.published_at || featured.created_at), lang) : '',
+      publishedAt: featured.published_at || featured.created_at, author: featured.author || featured.source, excerpt: featured.content || featured.summary,
+      source: featured.editorial || featured.source, url: featured.url, imageUrl: featured.image_url, imageCredit: featured.image_credit, views: featured.views
+    }] : []),
     ...allSearchable()
-  ];
-  const normalized = q.trim().toLowerCase();
-  const results = normalized
-    ? all.filter(it => [it.title, it.short_title, it.category, it.author, it.source, it.excerpt]
-        .filter(Boolean).some(value => String(value).toLowerCase().includes(normalized)))
-    : all.slice(0, 8);
+  ]), [userArticles, news, important, featured, lang]);
+
+  const results = q.trim().length
+    ? all.filter(it => {
+        const query = normalizeSearchText(q);
+        const haystack = normalizeSearchText([it.title, it.category, it.excerpt, it.author, it.source].filter(Boolean).join(' '));
+        return query.split(' ').filter(Boolean).every(word => haystack.includes(word));
+      })
+    : all.slice(0, 6);
 
   return (
     <>
@@ -236,8 +341,8 @@ function SearchContent() {
             <div className="search-empty">{lang === 'en' ? `No results for "${q}"` : `Ничего не найдено по запросу «${q}»`}</div>
           )}
           {results.map(r => (
-            <button className="search-result" key={`${r.id}-${r.title}`} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time, publishedAt: r.publishedAt, author: r.author, source: r.source, excerpt: r.excerpt, imageUrl: r.imageUrl, imageCredit: r.imageCredit, url: r.url, views: r.views })}>
-              <b>{t(r.short_title || r.title)}</b>
+            <button className="search-result" key={r.id} onClick={() => openModal('article', { id: r.id, category: r.category, title: r.title, time: r.time, publishedAt: r.publishedAt, author: r.author, excerpt: r.excerpt, source: r.source, url: r.url, imageUrl: r.imageUrl, imageCredit: r.imageCredit, views: r.views })}>
+              <b>{t(displayNewsTitle(r.title, r.source))}</b>
               <span>{r.author ? r.author : t(r.category)}{r.time ? ` · ${r.publishedAt ? r.time : t(r.time)}` : ''}</span>
             </button>
           ))}
@@ -287,36 +392,45 @@ function CookieSettingsContent() {
   );
 }
 
-function VideoContent({ title, desc, duration }) {
-  const { t, lang } = useApp();
-  const [playing, setPlaying] = useState(true);
-  const [progress, setProgress] = useState(4);
+function VideoContent({ title, desc, duration, videoUrl, videoType, videoCredit }) {
+  const { t } = useApp();
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    if (!playing) return;
-    const id = setInterval(() => setProgress(p => (p >= 100 ? 0 : p + 1.4)), 180);
-    return () => clearInterval(id);
-  }, [playing]);
-
+  const isEmbed = videoType === 'youtube' || videoType === 'vimeo' || videoType === 'iframe';
   return (
     <>
       <div className="modal-head">
         <h2 id="video-title">{t(title)}</h2>
-        <p>{t(desc)}</p>
+        {desc && <p>{t(desc)}</p>}
       </div>
       <div className="modal-body">
-        <div className="video-modal-frame">
-          <img src={videoThumb} alt="" />
-          <div className="video-modal-overlay">
-            <button onClick={() => setPlaying(p => !p)} aria-label={playing ? t('Пауза') : t('Смотреть')}>
-              {playing ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
-            </button>
+        {videoUrl && !error ? (
+          <div className="video-modal-frame real-player-frame">
+            {isEmbed ? (
+              <iframe
+                src={videoUrl}
+                title={t(title)}
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            ) : (
+              <video
+                src={videoUrl}
+                controls
+                playsInline
+                preload="metadata"
+                onError={() => setError(true)}
+              />
+            )}
           </div>
-        </div>
-        <div className="video-progress"><b style={{ width: `${progress}%` }} /></div>
-        <p style={{ marginTop: 10, fontSize: 11, color: 'var(--dim)' }}>
-          {(playing ? (lang === 'en' ? 'Playing' : 'Воспроизведение') : (lang === 'en' ? 'Paused' : 'Пауза'))} · {duration}
-        </p>
+        ) : (
+          <div className="video-modal-frame video-error-state">
+            <p>{t('Видео временно недоступно.')}</p>
+          </div>
+        )}
+        {videoCredit && <small className="video-credit">{videoCredit}</small>}
+        {duration && <p style={{ marginTop: 10, fontSize: 11, color: 'var(--dim)' }}>{duration}</p>}
       </div>
     </>
   );

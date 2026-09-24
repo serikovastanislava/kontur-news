@@ -1,45 +1,99 @@
+import os
+from django.conf import settings
 from django.core.management.base import BaseCommand
+
 from news_app.models import NewsItem
-from news_app.parser import find_free_image, extract_media_from_html
+from news_app.parser import (
+    extract_article_metadata,
+    resolve_article_image,
+)
 
 
 class Command(BaseCommand):
-    help = "Заменяет повторяющиеся/отсутствующие изображения новостей на разные свободные изображения."
+    help = "Find, download and normalize article images. Images are stored locally."
 
     def add_arguments(self, parser):
-        parser.add_argument("--limit", type=int, default=100, help="Сколько новостей обработать")
-        parser.add_argument("--all", action="store_true", help="Обработать все новости")
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Re-resolve images for every article, including articles that already have one.",
+        )
+        parser.add_argument(
+            "--limit",
+            type=int,
+            default=0,
+            help="Process only N newest articles (0 = all).",
+        )
 
     def handle(self, *args, **options):
-        qs = NewsItem.objects.order_by("-published_at", "-created_at")
-        if not options["all"]:
-            qs = qs[: max(1, options["limit"])]
+        qs = NewsItem.objects.all().order_by("-created_at")
+        if options["limit"]:
+            qs = qs[: options["limit"]]
 
-        used = set()
         changed = 0
-        for item in qs:
-            picked = find_free_image(item.title, item.category, used)
-            url = picked.get("url") or ""
-            if not url:
-                fallback = extract_media_from_html(item.url)
-                if fallback and fallback not in used:
-                    url = fallback
+        checked = 0
 
-            if not url or url in used:
-                # Let the frontend generate its unique topical fallback instead of
-                # assigning the same source image to several articles.
-                if item.image_url is not None:
-                    item.image_url = None
-                    item.image_credit = ""
-                    item.save(update_fields=["image_url", "image_credit", "updated_at"])
-                    changed += 1
+        for item in qs.iterator():
+            checked += 1
+            current = item.image_url or ""
+
+            # A local URL is safe only when the file is actually present in the
+            # shared media volume. Old deployments often had the URL in DB but
+            # the file lived in a short-lived parser container.
+            if current.startswith("/media/") and not options["all"]:
+                local_path = os.path.join(settings.MEDIA_ROOT, current[len("/media/"):])
+                if os.path.isfile(local_path) and os.path.getsize(local_path) > 1500:
+                    continue
+
+            metadata = extract_article_metadata(
+                item.url,
+                item.source or "Источник",
+                item.author or "Редакция",
+            )
+            source_image = metadata.get("image_url") or (
+                current if current.startswith(("http://", "https://")) else ""
+            )
+            content = metadata.get("excerpt") or item.summary or item.content or ""
+
+            prefix = f"refresh_{item.pk}"
+            local_image, credit = resolve_article_image(
+                image_url=source_image,
+                title=metadata.get("title") or item.title,
+                content=content,
+                category=item.category,
+                filename_prefix=prefix,
+                source_url=item.url,
+            )
+
+            if not local_image:
                 continue
 
-            if item.image_url != url or item.image_credit != picked.get("credit", ""):
-                item.image_url = url
-                item.image_credit = picked.get("credit", "")
-                item.save(update_fields=["image_url", "image_credit", "updated_at"])
-                changed += 1
-            used.add(url)
+            update_fields = []
+            if local_image != item.image_url:
+                item.image_url = local_image
+                update_fields.append("image_url")
+            if credit and credit != item.image_credit:
+                item.image_credit = credit
+                update_fields.append("image_credit")
 
-        self.stdout.write(self.style.SUCCESS(f"Изображения обновлены: {changed}"))
+            if metadata.get("title") and len(metadata["title"]) >= 15 and metadata["title"] != item.title:
+                item.title = metadata["title"][:500]
+                update_fields.append("title")
+
+            if metadata.get("author") and metadata["author"] != item.author:
+                item.author = metadata["author"][:160]
+                update_fields.append("author")
+
+            if metadata.get("published_at") and not item.published_at:
+                item.published_at = metadata["published_at"]
+                update_fields.append("published_at")
+
+            if update_fields:
+                item.save(update_fields=sorted(set(update_fields + ["updated_at"])))
+                changed += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Проверено: {checked}; обновлено изображений/метаданных: {changed}"
+            )
+        )

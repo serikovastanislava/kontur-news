@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Newspaper } from 'lucide-react';
 import { useApp } from '../../state/store';
 import { formatRelative } from '../../utils/time';
-import { remoteNewsImage } from '../../utils/covers';
+import NewsImage from './NewsImage';
+
+function displayPanoramaTitle(title, source = '') {
+  const value = String(title || '').trim();
+  if (!String(source || '').toLowerCase().includes('панорама')) return value;
+  const colon = value.indexOf(':');
+  return colon > 0 ? value.slice(0, colon).trim() : value;
+}
 
 const CATEGORY_ORDER = ['Политика', 'Экономика', 'Технологии', 'Общество', 'Мир', 'Бизнес', 'Наука', 'Здоровье', 'Спорт', 'Культура', 'Происшествия'];
 
@@ -13,6 +20,10 @@ export default function SourcesFeed() {
 
   const filtered = useMemo(() => {
     if (!activeTopic || activeTopic === 'Все' || activeTopic === 'Популярное') return news;
+    if (activeTopic === 'Война в Украине') {
+      const terms = ['украин', 'украина', 'киев', 'киевск', 'украинск'];
+      return news.filter(a => terms.some(term => `${a.title || ''} ${a.content || ''} ${a.summary || ''}`.toLowerCase().includes(term)));
+    }
     return news.filter(a => a.category === activeTopic);
   }, [news, activeTopic]);
 
@@ -39,14 +50,13 @@ export default function SourcesFeed() {
 
       {groups.map(([category, items]) => (
         <div className="news-category-group" key={category}>
-          <div className="category-group-head"><h3>{t(category)}</h3><span>{items.length}</span></div>
+          <div className="category-group-head"><h3>{t(category)}</h3></div>
           <div className="sources-grid">
             {items.slice(0, 8).map(a => (
               <button className="source-card-main backend-news-card" key={a.id} onClick={() => openBackendArticle(a)}>
-                <img className="backend-card-image" src={a.image_url || remoteNewsImage(a)} alt="" loading="lazy" />
+                <NewsImage className="backend-card-image" item={a} alt="" loading="lazy" />
                 <span className="source-tag">{t(a.category)}</span>
-                <h3>{a.title}</h3>
-                {a.content && <p>{a.content.replace(/<[^>]+>/g, '').slice(0, 180)}</p>}
+                <h3>{displayPanoramaTitle(a.title, a.source)}</h3>
                 <small>{formatRelative(new Date(a.published_at || a.created_at), lang)}</small>
               </button>
             ))}

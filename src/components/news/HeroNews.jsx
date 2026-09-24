@@ -1,16 +1,19 @@
-import { remoteNewsImage } from '../../utils/covers';
+import NewsImage from './NewsImage';
 import { heroMain, sideStories } from '../../data/news';
 import { useApp } from '../../state/store';
 
+
 export default function HeroNews() {
   const { t, openModal, featured, news } = useApp();
-  const hero = featured || news[0] || null;
+  const hero = (featured && String(featured.title || '').trim().split(/\s+/).length <= 6)
+    ? featured
+    : (news.find(item => String(item.title || '').trim().split(/\s+/).length <= 6) || news[0] || null);
   const side = news.filter(item => item.id !== hero?.id).slice(0, 4);
 
   if (!hero) {
     return (
       <section className="hero-section">
-        <article className="hero-card"><img src={remoteNewsImage({ id: 'loading', category: 'политика' })} alt="" /><div className="hero-tint" /><div className="hero-copy"><span className="pill">Контур</span><h1>{t('Загрузка новостей…')}</h1></div></article>
+        <article className="hero-card"><NewsImage item={{ id: 'loading', category: 'Политика' }} alt="" /><div className="hero-tint" /><div className="hero-copy"><span className="pill">Контур</span><h1>{t('Загрузка новостей…')}</h1></div></article>
       </section>
     );
   }
@@ -31,19 +34,16 @@ export default function HeroNews() {
   return (
     <section className="hero-section">
       <article className="hero-card" onClick={() => open(hero)}>
-        <img src={hero.image_url || remoteNewsImage(hero)} alt="" />
+        <NewsImage item={hero} alt="" />
         <div className="hero-tint" />
         <div className="hero-copy">
-          <span className="pill">{t(hero.category || 'Главное')}</span>
           <h1>{hero.title}</h1>
-          {hero.content && <p>{hero.content.replace(/<[^>]+>/g, '').slice(0, 240)}</p>}
-          <small>{hero.weekly_views || 0} {t('просмотров за 7 дней')}</small>
         </div>
       </article>
       <div className="hero-side">
         {(side.length ? side : sideStories).map((item) => (
           <article className="side-story" key={item.id} onClick={() => open(item)}>
-            <div className={`story-thumb ${item.kind || 'society'}`} style={{ backgroundImage: `url(${item.image_url || remoteNewsImage(item)})` }} />
+            <div className={`story-thumb ${item.kind || 'society'}`}><NewsImage item={item} alt="" /></div>
             <div className="side-story-body">
               <span>{t(item.category || 'Новости')}</span>
               <h3>{item.title}</h3>

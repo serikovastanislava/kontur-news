@@ -71,8 +71,8 @@ const dict = {
   'Новые технологии изменят рынок труда': 'New technology will reshape the labor market',
 
   // video
-  'Новый этап: запуск спутника связи': 'A new stage: communications satellite launch',
-  'Как это повлияет на развитие технологий и жизнь людей.': 'How this will affect technology and everyday life.',
+  'Кот точит когти': 'Cat scratching',
+  'Реальное видео из открытой медиатеки Wikimedia Commons.': 'Real video from the open Wikimedia Commons media library.',
 
   // important events timeline
   'ЦБ сохранил ключевую ставку': 'Central bank holds its key rate',

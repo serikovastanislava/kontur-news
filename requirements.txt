@@ -8,3 +8,5 @@ requests>=2.32,<3
 beautifulsoup4>=4.12,<5
 APScheduler>=3.10,<4
 gunicorn>=23,<24
+curl-cffi
+Pillow>=11.0,<13

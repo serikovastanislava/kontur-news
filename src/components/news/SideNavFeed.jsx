@@ -1,7 +1,7 @@
 import { Eye, Clock, Heart, LogIn } from 'lucide-react';
 import { useApp } from '../../state/store';
 import { formatRelative } from '../../utils/time';
-import { remoteNewsImage } from '../../utils/covers';
+import NewsImage from './NewsImage';
 
 
 export default function SideNavFeed({ mode }) {
@@ -21,7 +21,7 @@ export default function SideNavFeed({ mode }) {
         <div className="popular-grid">
           {items.map(a => (
             <article className="news-card clickable" key={a.id} onClick={() => openArticle(a)}>
-              <div className="card-image" style={{ backgroundImage: `url(${a.image_url || remoteNewsImage(a)})` }}><span>{t(a.category)}</span></div>
+              <div className="card-image"><NewsImage item={a} alt="" /><span>{t(a.category)}</span></div>
               <h3>{a.title}</h3>
               <small className="sidefeed-meta">
                 {mode === 'Популярное' && <span><Eye size={11} />{a.views || 0} {t('просмотров')}</span>}

@@ -1,6 +1,6 @@
 import os
-import sys
-
+import threading
+import time
 from django.apps import AppConfig
 
 
@@ -9,19 +9,34 @@ class NewsAppConfig(AppConfig):
     name = "news_app"
 
     def ready(self):
-        # Production Docker uses a dedicated parser service. Gunicorn workers
-        # must never each create their own scheduler.
-        if "parse_news" in sys.argv or "gunicorn" in " ".join(sys.argv):
-            return
+        # Проверка RUN_MAIN предотвращает двойной запуск при работе Django reloader
+        if os.environ.get("RUN_MAIN") == "true":
+            thread = threading.Thread(target=self.start_auto_parser, daemon=True)
+            thread.start()
 
-        # Only the Django runserver autoreload child starts the local scheduler.
-        if "runserver" not in sys.argv:
-            return
-        if os.environ.get("RUN_MAIN") != "true":
-            return
+    def start_auto_parser(self):
+        time.sleep(3)  # Небольшая пауза для полной инициализации БД
+        print("[AUTOPARSER] Фоновый автопарсер успешно запущен (интервал: 30 сек)")
+
+        from news_app.parser import start_telegram_web_parsing
 
         try:
-            from .scheduler import start_scheduler
-            start_scheduler()
-        except Exception as exc:
-            print(f"[SCHEDULER] Не удалось запустить планировщик: {exc}")
+            from news_app.parser import start_parsing
+        except ImportError:
+            start_parsing = None
+
+        while True:
+            # 1. Запуск RSS
+            if start_parsing:
+                try:
+                    start_parsing()
+                except Exception as e:
+                    print(f"[AUTOPARSER RSS ERROR] {e}")
+
+            # 2. Запуск Telegram Web с загрузкой медиа
+            try:
+                start_telegram_web_parsing()
+            except Exception as e:
+                print(f"[AUTOPARSER TG ERROR] {e}")
+
+            time.sleep(30)
