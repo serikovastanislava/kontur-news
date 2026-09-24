@@ -1,16 +1,14 @@
-// Real 16:9 cat videos from Wikimedia Commons.
-// All selected files are published under Creative Commons licences.
 export const catMedia = [
   {
     id: 'cat-scratching',
-    title: 'Кот точит когти',
+    title: 'Кот вылизывается',
     duration: '00:21',
     source: 'Wikimedia Commons · CC BY-SA 4.0',
     url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_scratching.webm',
   },
   {
     id: 'cat-kittens',
-    title: 'Кот и его котята',
+    title: 'Кот идет',
     duration: '03:39',
     source: 'Wikimedia Commons · CC BY-SA 3.0',
     url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_and_kittens.webm',
@@ -24,7 +22,7 @@ export const catMedia = [
   },
   {
     id: 'cat-playing',
-    title: 'Кот играет у окна',
+    title: 'Кот',
     duration: '00:38',
     source: 'Wikimedia Commons · CC BY-SA 4.0',
     url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_Play.webm',
@@ -51,4 +49,3 @@ export const catMedia = [
     url: 'https://commons.wikimedia.org/wiki/Special:Redirect/file/Cat_play_01.webm',
   },
 ];
-
