@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from news_app.parser import repair_existing_images, start_telegram_web_parsing
 
 
-class Command:
+class Command(BaseCommand):
     help = "Запуск Telegram Web парсера"
 
     def add_arguments(self, parser):
