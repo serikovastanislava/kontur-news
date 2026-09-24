@@ -4,9 +4,9 @@ The important rule here is: article images are downloaded to Django MEDIA_ROOT.
 The browser never depends on Telegram/Unsplash/Wikimedia being reachable at render time.
 
 Image priority:
-1. image attached to the Telegram post / RSS enclosure;
-2. og:image / twitter:image from the original article;
-3. Wikimedia Commons image selected from the article title/context;
+1. image attached to the Telegram post;
+2. og:image / twitter:image from the Telegram post's linked article;
+3. Wikimedia Commons image selected from the Telegram post context;
 4. local category fallback shipped with the project.
 
 All remote images are validated with Pillow and converted to JPEG locally.
@@ -19,8 +19,6 @@ import os
 import re
 from datetime import datetime, timezone as dt_timezone
 from urllib.parse import quote_plus, urljoin, urlparse
-
-import feedparser
 from bs4 import BeautifulSoup
 from PIL import Image, UnidentifiedImageError
 
@@ -58,14 +56,6 @@ TELEGRAM_CHANNELS = {
     "РИА Новости": "ria_novosti",
     "РБК": "rbc_news",
     "Известия": "izvestiya",
-}
-
-RSS_FEEDS = {
-    "ТАСС": "https://tass.ru/rss/v2.xml",
-    "РИА Новости": "https://ria.ru/export/rss2/archive/index.xml",
-    "РБК": "https://rssexport.rbc.ru/rbcnews/news/30/full.rss",
-    "Коммерсантъ": "https://www.kommersant.ru/RSS/news.xml",
-    "АиФ": "https://aif.ru/rss/news.php",
 }
 
 HEADERS = {
@@ -273,7 +263,7 @@ def extract_video_from_soup(soup, base_url: str = "") -> tuple[str, str]:
 
 
 def make_short_summary(text: str, title: str = "", max_chars: int = 260) -> str:
-    """Extract a concise essence rather than copying a long RSS description."""
+    """Extract a concise essence from a Telegram post or linked article."""
     clean = BeautifulSoup(str(text or ""), "html.parser").get_text(" ", strip=True)
     clean = re.sub(r"\s+", " ", clean).strip()
     if title and clean.lower().startswith(title.lower()):
@@ -641,108 +631,6 @@ def _image_contains_text(image_bytes: bytes) -> bool:
         return pixels > 0 and strong / pixels > 0.075 and gray.width >= 500
     except Exception:
         return False
-
-
-def _entry_image(entry, base_url="") -> str:
-    for key in ("media_content", "media_thumbnail", "links"):
-        values = entry.get(key) or []
-        if isinstance(values, dict):
-            values = [values]
-        for value in values:
-            if isinstance(value, dict):
-                href = value.get("url") or value.get("href")
-                mime = (value.get("type") or "").lower()
-                if href and (not mime or mime.startswith("image/")):
-                    return _absolute_image_url(href, base_url)
-    return ""
-
-
-def parse_rss_feed(source_name: str, feed_url: str) -> int:
-    try:
-        response = http_get(feed_url, timeout=12)
-        response.raise_for_status()
-        parsed = feedparser.parse(response.content)
-    except Exception as exc:
-        print(f"[RSS ERROR] {source_name}: {exc}")
-        return 0
-
-    added = 0
-    for entry in reversed(parsed.entries[:80]):
-        try:
-            url = entry.get("link", "").strip()
-            title = BeautifulSoup(entry.get("title", ""), "html.parser").get_text(" ", strip=True)
-            content = entry.get("summary") or entry.get("description") or ""
-            content = make_excerpt(content, title)
-            summary = make_short_summary(content, title)
-            if not url or len(title) < 15 or is_duplicate(title, url):
-                continue
-
-            category, importance = classify_news(title, content)
-            published_at = None
-            if entry.get("published_parsed"):
-                published_at = datetime(*entry.published_parsed[:6], tzinfo=dt_timezone.utc)
-            source_image = _entry_image(entry, url)
-            metadata = {}
-
-            if not source_image:
-                metadata = extract_article_metadata(url, source_name, entry.get("author", ""))
-                source_image = metadata.get("image_url") or ""
-                if metadata.get("excerpt"):
-                    content = metadata["excerpt"]
-                    summary = make_short_summary(content, title)
-                if metadata.get("published_at"):
-                    published_at = metadata["published_at"]
-
-            prefix = f"rss_{hashlib.sha1(url.encode()).hexdigest()[:16]}"
-            local_image, credit = resolve_article_image(
-                image_url=source_image,
-                title=title,
-                content=content,
-                category=category,
-                filename_prefix=prefix,
-                source_url=url,
-            )
-            if source_name.lower() in {"риа новости", "рбк"}:
-                local_image, credit = "", ""
-            video_url = metadata.get("video_url", "")
-            video_type = metadata.get("video_type", "")
-            video_credit = "Видео из оригинальной публикации" if video_url else ""
-            if not video_url:
-                video_url, video_type, video_credit = resolve_article_video(title, content, category, url)
-
-            NewsItem.objects.create(
-                title=title[:500],
-                url=url,
-                content=content,
-                summary=summary or make_short_summary(content, title),
-                source=source_name,
-                image_url=local_image,
-                image_credit=credit,
-                video_url=video_url,
-                video_type=video_type,
-                video_credit=video_credit,
-                author=(entry.get("author") or source_name)[:160],
-                category=category,
-                importance_score=importance,
-                published_at=published_at,
-            )
-            added += 1
-            print(f"[NEW RSS] {source_name}: {title[:70]}")
-        except IntegrityError:
-            continue
-        except Exception as exc:
-            print(f"[RSS ITEM ERROR] {source_name}: {exc}")
-
-    return added
-
-
-def start_parsing() -> int:
-    total = 0
-    for source_name, feed_url in RSS_FEEDS.items():
-        total += parse_rss_feed(source_name, feed_url)
-    print(f"[RSS COMPLETE] Добавлено новостей: {total}")
-    return total
-
 
 
 def repair_existing_images(limit: int = 200) -> int:
