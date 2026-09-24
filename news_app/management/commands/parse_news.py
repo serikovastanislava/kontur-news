@@ -51,8 +51,10 @@ class Command(BaseCommand):
                 )
             )
             while True:
+                started_at = time.monotonic()
                 self.run_parser()
-                time.sleep(interval)
+                elapsed = time.monotonic() - started_at
+                time.sleep(max(0, interval - elapsed))
         else:
             self.run_parser()
 
